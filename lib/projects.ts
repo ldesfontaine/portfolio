@@ -1,40 +1,72 @@
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
+import { getPayload } from "payload";
+
+import config from "@payload-config";
+import type { Project } from "@/payload-types";
 import type { ProjectMeta } from "./types";
 
-const projectsDir = path.join(process.cwd(), "legacy/content/projects");
+const payloadPromise = getPayload({ config });
 
-export function getProjects(): (ProjectMeta & { content: string })[] {
-  const files = fs.readdirSync(projectsDir).filter((f) => f.endsWith(".mdx"));
+const toMeta = (p: Project): ProjectMeta => ({
+  slug: p.slug ?? String(p.id),
+  title: p.title,
+  category: p.category,
+  description: p.description,
+  stack: (p.stack ?? []).map((s) => s.value),
+  github: p.github ?? undefined,
+  period: p.period,
+  type: p.type,
+  badge: p.badge ?? undefined,
+  order: p.order,
+});
 
-  return files
-    .map((file) => {
-      const raw = fs.readFileSync(path.join(projectsDir, file), "utf-8");
-      const { data, content } = matter(raw);
-      return {
-        ...(data as ProjectMeta),
-        slug: file.replace(/\.mdx$/, ""),
-        content,
-      };
-    })
-    .sort((a, b) => a.order - b.order);
+export type ProjectDetail = ProjectMeta & {
+  content: NonNullable<Project["content"]>;
+};
+
+export async function getProjects(): Promise<ProjectMeta[]> {
+  const payload = await payloadPromise;
+  const { docs } = await payload.find({
+    collection: "projects",
+    where: { _status: { equals: "published" } },
+    sort: "order",
+    depth: 2,
+    limit: 100,
+  });
+  return docs.map(toMeta);
 }
 
-export function getProjectBySlug(
-  slug: string
-): (ProjectMeta & { content: string }) | undefined {
-  const filePath = path.join(projectsDir, `${slug}.mdx`);
-  if (!fs.existsSync(filePath)) return undefined;
-
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const { data, content } = matter(raw);
-  return { ...(data as ProjectMeta), slug, content };
+export async function getProjectBySlug(
+  slug: string,
+): Promise<ProjectDetail | undefined> {
+  const payload = await payloadPromise;
+  const { docs } = await payload.find({
+    collection: "projects",
+    where: {
+      and: [
+        { slug: { equals: slug } },
+        { _status: { equals: "published" } },
+      ],
+    },
+    depth: 2,
+    limit: 1,
+  });
+  const doc = docs[0];
+  if (!doc) return undefined;
+  return {
+    ...toMeta(doc),
+    content: doc.content ?? [],
+  };
 }
 
-export function getProjectSlugs(): string[] {
-  return fs
-    .readdirSync(projectsDir)
-    .filter((f) => f.endsWith(".mdx"))
-    .map((f) => f.replace(/\.mdx$/, ""));
+export async function getProjectSlugs(): Promise<string[]> {
+  const payload = await payloadPromise;
+  const { docs } = await payload.find({
+    collection: "projects",
+    where: { _status: { equals: "published" } },
+    depth: 0,
+    limit: 100,
+  });
+  return docs
+    .map((d) => d.slug)
+    .filter((s): s is string => typeof s === "string" && s.length > 0);
 }
