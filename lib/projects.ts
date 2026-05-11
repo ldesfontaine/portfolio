@@ -3,7 +3,7 @@ import path from "path";
 import matter from "gray-matter";
 import type { ProjectMeta } from "./types";
 
-const projectsDir = path.join(process.cwd(), "content/projects");
+const projectsDir = path.join(process.cwd(), "legacy/content/projects");
 
 export function getProjects(): (ProjectMeta & { content: string })[] {
   const files = fs.readdirSync(projectsDir).filter((f) => f.endsWith(".mdx"));

@@ -203,20 +203,30 @@ Le seed est **idempotent**. Clés d'upsert :
 
 Deuxième passage observé : 0 created, tout en updated. Pas de doublon.
 
-### ⚠️ Le frontend public est cassé jusqu'à la fin de l'Étape 4
+### Compatibilité legacy : alias tsconfig + `lib/projects.ts` repointé
 
-Les fichiers `app/page.tsx`, `app/parcours/page.tsx`, `app/a-propos/page.tsx`,
-`components/Footer.tsx`, `components/ContactGrid.tsx` importent toujours `@/content/*`
-qui n'existe plus. Conséquences :
-- `npm run dev` répond `Module not found: '@/content/meta'` (ou équivalent) sur `/`.
-- `npm run typecheck` échoue avec ~12 erreurs `TS2307: Cannot find module '@/content/...'`.
+Le `app/layout.tsx` (root layout) importe `components/Footer.tsx` qui importe
+`@/content/meta`. Comme la route group `(payload)` hérite du root layout, déplacer
+`content/` cassait aussi `/admin` (Next 500 « Module not found »). La séparation
+propre `app/(site)/` + `app/(payload)/` est du ressort de l'Étape 4.
 
-Ces casses sont attendues par le brief de l'Étape 3 :
-> « Les imports qui pointent encore vers `@/content/*` dans le frontend vont casser en runtime — c'est attendu, on corrige tout en Étape 4. »
+Pour débloquer **maintenant** le `/admin` (objectif de l'Étape 3) sans toucher au
+frontend :
 
-Le critère « `npm run typecheck` au vert » de l'Étape 3 est donc en contradiction avec le déplacement vers `legacy/`. **Lint reste vert.** Tout sera réparé à l'Étape 4 en rebranchant les pages sur la Local API Payload via `lib/content.ts` + `lib/projects.ts` réécrits.
+1. `tsconfig.json` : alias `"@/content/*": ["./legacy/content/*"]` ajouté avant
+   `"@/*"`. Toute import existant `@/content/foo` résout vers `legacy/content/foo`.
+2. `lib/projects.ts` : `process.cwd() + "content/projects"` → `legacy/content/projects`.
 
-Le `/admin` Payload reste 100% fonctionnel — tu peux y vérifier que toutes les données sont bien là.
+Conséquence : le frontend public **continue de fonctionner**, lisant les données
+de `legacy/`. La « casse runtime » mentionnée dans le brief de l'Étape 3 n'a pas
+lieu — c'était un effet de bord du déplacement, pas un objectif. Lint + typecheck
+restent verts.
+
+L'Étape 4 :
+- supprimera ces deux compat-shims (l'alias tsconfig et le repoint de `lib/projects.ts`)
+- rebranchera les pages sur la Local API Payload via `lib/content.ts` et un
+  `lib/projects.ts` réécrit
+- séparera proprement les layouts `(site)` et `(payload)`
 
 ### Critères d'acceptation Étape 3
 
@@ -228,8 +238,9 @@ Le `/admin` Payload reste 100% fonctionnel — tu peux y vérifier que toutes le
 - [x] Globals **Site Meta** et **À propos** remplis correctement
 - [x] Re-lancer le seed → 0 doublon, 0 erreur, tout en « Updated »
 - [x] `legacy/` contient bien meta.ts, about.ts, timeline.ts, certifications.ts, projects/*.mdx
-- [ ] `npm run typecheck` au vert — **non, casse attendue sur les imports `@/content/*`**, à réparer Étape 4
+- [x] `npm run typecheck` au vert (via les compat-shims décrits ci-dessus)
 - [x] `npm run lint` au vert
+- [x] `/admin`, `/`, `/parcours`, `/a-propos`, `/projets`, `/projets/[slug]` répondent tous 200
 
 ---
 

@@ -23,6 +23,9 @@
       }
     ],
     "paths": {
+      "@/content/*": [
+        "./legacy/content/*"
+      ],
       "@/*": [
         "./*"
       ],
