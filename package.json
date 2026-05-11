@@ -10,7 +10,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "generate:types": "payload generate:types",
-    "generate:types:docker": "docker run --rm -v \"$(pwd):/app\" -w /app node:22-alpine sh -c 'apk add --no-cache libc6-compat && npm ci --silent && npx payload generate:types'",
+    "seed": "payload run scripts/seed.ts",
+    "seed:docker": "docker run --rm -u \"$(id -u):$(id -g)\" -v \"$(pwd):/app\" --env-file .env -w /app node:22-slim sh -c 'npm ci --silent && npx payload run scripts/seed.ts'",
+    "generate:types:docker": "docker run --rm -u \"$(id -u):$(id -g)\" -v \"$(pwd):/app\" -w /app node:22-slim sh -c 'npm ci --silent && npx payload generate:types'",
     "generate:importmap": "payload generate:importmap"
   },
   "dependencies": {
@@ -30,13 +32,17 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.4",
+    "@types/mdast": "^4.0.4",
     "@types/mdx": "^2.0.13",
     "@types/node": "^22.14.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.2",
     "eslint": "^9",
     "eslint-config-next": "^15.3.1",
+    "remark-mdx": "^3.1.1",
+    "remark-parse": "^11.0.0",
     "tailwindcss": "^4.1.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "unified": "^11.0.5"
   }
 }
