@@ -154,8 +154,86 @@ const cover = project.coverImage as Media | null;
 
 ---
 
+## Étape 3 — Seed des données legacy (terminée)
+
+`scripts/seed.ts` migre 100% du contenu existant (`content/*.ts` + `content/projects/*.mdx`)
+vers la base SQLite Payload via la Local API. Les fichiers sources sont archivés sous `legacy/`.
+
+### Ce qui a été migré
+
+| Source | Cible Payload | Volume |
+| --- | --- | --- |
+| `content/meta.ts` | global `site-meta` | 1 doc |
+| `content/about.ts` | global `about` | 1 doc, paragraphes convertis en richText Lexical |
+| `content/timeline.ts` | collection `timeline-items` | 8 docs |
+| `content/certifications.ts` | collection `certifications` | 3 docs |
+| `content/projects/*.mdx` | collection `projects` | 4 docs, body MDX → blocks |
+
+Tous les fichiers source ont été déplacés dans `legacy/content/` (et `legacy/content/projects/`).
+
+### Mapping mdast → blocks Payload
+
+| mdast | block Payload |
+| --- | --- |
+| `heading` profondeur 2 (`## ...`) | `section-heading` |
+| `paragraph` | `paragraph` (mdast → Lexical : `strong`=bold, `emphasis`=italic, `inlineCode`=code) |
+| `code` (` ```lang `) | `code-block` (langue mappée sur les 9 options, fallback `bash`) |
+| MDX JSX `<CodeBlock>` | `code-block` |
+| MDX JSX `<Highlight>` | `highlight` |
+| MDX JSX `<ArchitectureDiagram>` | `architecture-diagram` |
+| autres types (list, blockquote, …) | log un warning, ignoré |
+
+Les MDX legacy actuels ne contiennent que `heading` (depth 2) + `paragraph` avec inlines (`**bold**`, `` `code` ``). Aucun warning au seed.
+
+### Commandes
+
+```bash
+# Local (échoue silencieusement sur Node 20.19 à cause du loader tsx)
+npm run seed
+
+# Docker (recommandé — node:22-slim, exécute en tant qu'utilisateur courant)
+npm run seed:docker
+```
+
+Le seed est **idempotent**. Clés d'upsert :
+- `timeline-items` : couple (`date`, `title`)
+- `certifications` : `name`
+- `projects` : `slug`
+- globals : pas de clé (un seul doc par slug par définition)
+
+Deuxième passage observé : 0 created, tout en updated. Pas de doublon.
+
+### ⚠️ Le frontend public est cassé jusqu'à la fin de l'Étape 4
+
+Les fichiers `app/page.tsx`, `app/parcours/page.tsx`, `app/a-propos/page.tsx`,
+`components/Footer.tsx`, `components/ContactGrid.tsx` importent toujours `@/content/*`
+qui n'existe plus. Conséquences :
+- `npm run dev` répond `Module not found: '@/content/meta'` (ou équivalent) sur `/`.
+- `npm run typecheck` échoue avec ~12 erreurs `TS2307: Cannot find module '@/content/...'`.
+
+Ces casses sont attendues par le brief de l'Étape 3 :
+> « Les imports qui pointent encore vers `@/content/*` dans le frontend vont casser en runtime — c'est attendu, on corrige tout en Étape 4. »
+
+Le critère « `npm run typecheck` au vert » de l'Étape 3 est donc en contradiction avec le déplacement vers `legacy/`. **Lint reste vert.** Tout sera réparé à l'Étape 4 en rebranchant les pages sur la Local API Payload via `lib/content.ts` + `lib/projects.ts` réécrits.
+
+Le `/admin` Payload reste 100% fonctionnel — tu peux y vérifier que toutes les données sont bien là.
+
+### Critères d'acceptation Étape 3
+
+- [x] `npm run seed` (en réalité `npm run seed:docker`) passe sans erreur fatale
+- [x] Dans `/admin > Projets` : 4 projets (bientot, poc-phantom, simulation-ba186, zero-trust)
+- [x] Chaque projet a son champ `content` rempli de blocks (entre 11 et 18 blocks selon le projet)
+- [x] Items du parcours : 8 docs, dans l'ordre original via `order` 0-7
+- [x] Certifications : 3 docs, dans l'ordre original via `order` 0-2
+- [x] Globals **Site Meta** et **À propos** remplis correctement
+- [x] Re-lancer le seed → 0 doublon, 0 erreur, tout en « Updated »
+- [x] `legacy/` contient bien meta.ts, about.ts, timeline.ts, certifications.ts, projects/*.mdx
+- [ ] `npm run typecheck` au vert — **non, casse attendue sur les imports `@/content/*`**, à réparer Étape 4
+- [x] `npm run lint` au vert
+
+---
+
 ## Étapes suivantes (pas encore commencées)
 
-- **Étape 3** — `scripts/seed.ts` pour migrer `content/*.ts` + `content/projects/*.mdx`.
-- **Étape 4** — Refactor `lib/projects.ts` + nouveau `lib/content.ts`, adapter les pages, `components/BlockRenderer.tsx`.
+- **Étape 4** — Refactor `lib/projects.ts` + nouveau `lib/content.ts`, adapter les pages, `components/BlockRenderer.tsx`. Cette étape **répare le frontend** (typecheck redevient vert, runtime aussi).
 - **Étape 5** — Sécu, `scripts/create-admin.ts`, Dockerfile, finitions.
