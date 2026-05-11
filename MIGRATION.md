@@ -370,6 +370,98 @@ Chaque page de `app/(site)/` exporte aussi `export const revalidate = 3600` comm
 
 ---
 
-## Étapes suivantes (pas encore commencées)
+## Étape 5 — Prod-ready (terminée)
 
-- **Étape 5** — Sécu, `scripts/create-admin.ts`, Dockerfile, finitions.
+Nettoyage tech-debt, Dockerfile production, sécurité du panel admin, backup et restore documentés.
+
+### Cleanup
+
+- Suppression de `next-mdx-remote` et `@types/mdx` (`depcheck` confirme inutilisés)
+- Déplacement de `gray-matter` en `devDependencies` (utilisé uniquement par `scripts/seed.ts`)
+- `components/BlockRenderer.tsx` : remplace les bitmasks Lexical hardcodés (`BOLD=1`, `ITALIC=2`, `CODE=16`) par les constantes officielles `IS_BOLD`, `IS_ITALIC`, `IS_CODE`, etc. importées depuis `@payloadcms/richtext-lexical/lexical`
+- `next.config.ts` : suppression de `output: "standalone"` (Dockerfile passe à `next start` sur l'image complète) et `pageExtensions` réduit à `["ts", "tsx"]` (plus de MDX)
+- `tsconfig.json` : exclusion de `scripts/` et `legacy/` du typecheck Next (CLI scripts exécutés via `payload run` avec leur propre loader)
+
+### Dockerfile
+
+Bascule sur `node:22-slim` (Debian, zéro friction avec sharp et `@libsql/client`). Build multi-stage :
+
+- **Builder** : `npm ci` complet, `npm run build` Next, `npm prune --omit=dev`. `PAYLOAD_SECRET` est un placeholder factice à build time (le vrai vient du runtime).
+- **Runner** : copie `package.json`, `node_modules` pruné, `.next`, `public`, `app`, `src`, `lib`, `scripts`, `payload.config.ts`, `payload-types.ts`, `tsconfig.json`. `libvips42` + `sqlite3` + `wget` installés pour sharp / backup / healthcheck. User `nextjs:nodejs` (1001:1001). Dossiers `/data` et `/app/media` créés avec les bons owners.
+
+`.dockerignore` exclut `node_modules`, `.next`, `legacy/`, `*.db`, `/media`, `.env*` (sauf `.env.example`), docs, `docker-compose.yml`.
+
+### Entrypoint et bootstrap
+
+`docker/entrypoint.sh` runs en deux temps avant l'exec de `next start` :
+
+1. Bootstrap DB schema + admin user via `NODE_ENV=development npx payload run scripts/create-admin.ts`
+   - Le `NODE_ENV=development` est éphémère (sub-shell), il n'affecte que ce step
+   - Forcé parce que `@payloadcms/db-sqlite` ne push le schéma que hors prod (par design Payload — la voie officielle prod c'est les migrations Drizzle, ici on contourne pour rester single-user sans historique)
+2. `exec npx next start` → Next en `NODE_ENV=production`, schéma déjà en place
+
+`scripts/create-admin.ts` est **idempotent** : si la collection `users` contient déjà au moins un doc, no-op. Sinon, crée l'admin depuis `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Si l'une des deux env vars est absente, skip silencieux.
+
+### Build-safe data fetching
+
+Les helpers `lib/projects.ts` et `lib/content.ts` détectent `NEXT_PHASE === "phase-production-build"` : en cas d'erreur de connexion à Payload pendant `next build` (DB pas encore mountée), retournent des valeurs vides au lieu de planter. `generateStaticParams` retourne `[]` dans le même cas — les routes `/projets/[slug]` deviennent dynamiques au premier hit et l'ISR `revalidate = 3600` les met en cache après.
+
+### docker-compose.yml
+
+Service unique `portfolio` sur le réseau `traefik` (external), volumes nommés pour `/data` et `/app/media`.
+
+Deux routers Traefik :
+- `portfolio` : public, sert tout sauf `/admin` et `/api`
+- `portfolio-admin` : `(PathPrefix('/admin') || PathPrefix('/api'))`, priorité 100, middleware `ipallowlist` sur la liste CIDR `ADMIN_ALLOWED_IPS`
+
+### Sécurité
+
+| Couche | Mécanisme |
+| --- | --- |
+| Réseau | Traefik `ipallowlist` sur `/admin` + `/api` |
+| Secret | `PAYLOAD_SECRET` (48 bytes base64), runtime-only, jamais commit |
+| Auth | Email/password via Payload, password reset désactivé (single-user) |
+| Sessions | JWT signé avec `PAYLOAD_SECRET` |
+
+**2FA non implémenté.** Pas de plugin officiel Payload stable au moment de la migration. Deux options community (`payload-totp` ~3.0.1, `@clocklimited/payload-2fa` en beta). À ajouter plus tard si jugé nécessaire — l'IP allowlist + secret fort suffit pour un usage perso.
+
+### Backup et restore
+
+`scripts/backup.sh` snapshot SQLite via `.backup` (transactionnel) + tarball `/app/media`, rétention 30 jours, sync optionnel vers un remote `rclone` via `RCLONE_REMOTE`. Procédure complète dans le [README](README.md#backup-et-restore).
+
+Le brief demandait un `tar` direct sur le `.db` ; j'ai préféré `.backup` SQLite parce qu'il est safe pendant les writes (sinon risque de capturer une transaction partielle).
+
+### Critères d'acceptation Étape 5
+
+- [x] `npm run typecheck` au vert
+- [x] `npm run lint` au vert
+- [x] `npx depcheck` clean côté deps (les 4 false-positives sont gardés sciemment : Tailwind via PostCSS, ESLint, types React DOM)
+- [x] `BlockRenderer` utilise `IS_BOLD`, `IS_ITALIC`, `IS_CODE`, `IS_STRIKETHROUGH`, `IS_UNDERLINE` depuis `@payloadcms/richtext-lexical/lexical`
+- [x] `docker build` réussit (multi-stage)
+- [x] `docker run` lance le conteneur, healthcheck passe à `healthy`
+- [x] Avec `.env` minimal local (`SECRET` aléatoire + `ADMIN_EMAIL`/`PASSWORD`), `/`, `/admin`, `/projets`, `/a-propos` répondent 200, et l'admin user est créé en base dans la foulée
+- [x] `scripts/backup.sh` produit un snapshot SQLite + tarball média (testé en conteneur)
+- [x] `README.md` documente setup dev, setup prod, sécurité, backup, restore
+- [x] `MIGRATION.md` final récapitule les 5 étapes
+
+### Pièges connus restants
+
+- **Build-time DB-less** : si à terme tu veux du pre-rendering statique en build (ex. ISG complet), il faudra basculer sur de vraies migrations Drizzle plutôt que `push: true`, et builder dans un conteneur qui mount la DB. Pour l'instant, ISR + dynamic fallback fait le job pour un portfolio.
+- **`payload generate:types` local** : toujours bloqué sur Node 20.19 (undici/tsx). `npm run generate:types:docker` reste la voie. Sur Node 22 local, le bug disparaît.
+- **Pas de 2FA** : à brancher si compromission de mot de passe devient un risque réel.
+
+---
+
+## Migration terminée
+
+| Étape | Sujet | Status |
+| --- | --- | --- |
+| 1 | Setup Payload + scaffolding admin | ✅ |
+| 2 | Schéma de données (collections, globals, blocks) en français | ✅ |
+| 3 | Seed idempotent des données legacy MDX → Payload | ✅ |
+| 4 | Frontend branché sur Payload Local API + revalidation | ✅ |
+| 5 | Prod-ready : Docker, sécurité, backup, doc | ✅ |
+
+Le portfolio est désormais éditable en ligne via `/admin`, déployable en un `docker compose up -d --build`, avec un panel admin protégé par IP allowlist Traefik et un backup automatisable via cron.
+
+Le dossier `legacy/content/` reste comme archive — non importé par le code prod, à conserver tant qu'un doute subsiste sur la migration des données.
