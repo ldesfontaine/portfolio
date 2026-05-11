@@ -1,8 +1,8 @@
 "use client";
 
-import { siteMeta } from "@/content/meta";
+import type { SiteMeta } from "@/lib/types";
 
-export default function Footer() {
+export default function Footer({ siteMeta }: { siteMeta: SiteMeta }) {
   return (
     <footer style={{ borderTop: "0.5px solid var(--n100)" }}>
       <div className="mx-auto max-w-[820px] px-5 flex items-center justify-between py-6">
