@@ -3,7 +3,14 @@ import {
   RichText,
   type JSXConvertersFunction,
 } from "@payloadcms/richtext-lexical/react";
-import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
+import {
+  IS_BOLD,
+  IS_CODE,
+  IS_ITALIC,
+  IS_STRIKETHROUGH,
+  IS_UNDERLINE,
+  type SerializedEditorState,
+} from "@payloadcms/richtext-lexical/lexical";
 
 import type { Media, Project } from "@/payload-types";
 import CodeBlockComponent from "./CodeBlock";
@@ -26,15 +33,8 @@ export const proseConverters: JSXConvertersFunction = ({ defaultConverters }) =>
     );
   },
   text: ({ node }) => {
-    const NodeFormat = {
-      BOLD: 1,
-      ITALIC: 2,
-      STRIKETHROUGH: 4,
-      UNDERLINE: 8,
-      CODE: 16,
-    } as const;
     let element: React.ReactNode = node.text;
-    if (node.format & NodeFormat.CODE) {
+    if (node.format & IS_CODE) {
       element = (
         <code
           className="rounded px-1 py-0.5 font-mono text-[13px]"
@@ -48,18 +48,18 @@ export const proseConverters: JSXConvertersFunction = ({ defaultConverters }) =>
         </code>
       );
     }
-    if (node.format & NodeFormat.UNDERLINE) {
+    if (node.format & IS_UNDERLINE) {
       element = <span style={{ textDecoration: "underline" }}>{element}</span>;
     }
-    if (node.format & NodeFormat.STRIKETHROUGH) {
+    if (node.format & IS_STRIKETHROUGH) {
       element = (
         <span style={{ textDecoration: "line-through" }}>{element}</span>
       );
     }
-    if (node.format & NodeFormat.ITALIC) {
+    if (node.format & IS_ITALIC) {
       element = <em>{element}</em>;
     }
-    if (node.format & NodeFormat.BOLD) {
+    if (node.format & IS_BOLD) {
       element = (
         <strong className="font-medium" style={{ color: "var(--n900)" }}>
           {element}
