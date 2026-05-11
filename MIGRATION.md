@@ -244,6 +244,42 @@ L'Étape 4 :
 
 ---
 
+## Hotfix — Route group split `(site)` / `(payload)`
+
+Bug observé après Étape 3 : `/admin` chargeait côté serveur mais crashait côté
+client avec « Failed to execute 'insertBefore' on 'Node' ». Cause : deux root
+layouts en conflit, `app/layout.tsx` (site, déclare `<html><body>` + Nav/Footer)
+et `app/(payload)/layout.tsx` (Payload, déclare aussi `<html><body>` via
+`RootLayout`). Le parent englobait le child, deux `<html>` imbriqués, React
+n'arrivait pas à hydrater.
+
+**Fix** (aurait dû être fait dès Étape 1) : deux route groups parallèles avec
+chacun leur propre root layout.
+
+```
+app/
+├── (payload)/   ← root layout = RootLayout @payloadcms/next
+│   ├── admin/
+│   ├── api/
+│   └── layout.tsx
+└── (site)/      ← root layout = layout.tsx du site (Nav/Footer/fonts)
+    ├── a-propos/
+    ├── globals.css
+    ├── layout.tsx
+    ├── page.tsx
+    ├── parcours/
+    └── projets/
+```
+
+Plus aucun `app/layout.tsx` ni `app/page.tsx` à la racine — sinon Next les
+considère comme le root layout et le problème revient.
+
+URLs publiques **inchangées** : les parenthèses dans le nom du dossier ne
+participent pas au path. `/`, `/projets`, `/projets/[slug]`, `/parcours`,
+`/a-propos` continuent de servir depuis le group `(site)`.
+
+---
+
 ## Étapes suivantes (pas encore commencées)
 
 - **Étape 4** — Refactor `lib/projects.ts` + nouveau `lib/content.ts`, adapter les pages, `components/BlockRenderer.tsx`. Cette étape **répare le frontend** (typecheck redevient vert, runtime aussi).
