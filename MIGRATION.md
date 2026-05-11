@@ -280,7 +280,96 @@ participent pas au path. `/`, `/projets`, `/projets/[slug]`, `/parcours`,
 
 ---
 
+## Étape 4 — Frontend branché sur Payload (terminée)
+
+Le frontend public lit désormais ses données depuis la Local API Payload via deux modules dédiés. Les compat-shims temporaires (`@/content/*` alias et `legacy/content/projects` dans `lib/projects.ts`) ont été retirés.
+
+### Couche `lib/` — source unique des données
+
+- `lib/projects.ts` : signatures `getProjects()`, `getProjectBySlug(slug)`, `getProjectSlugs()` désormais **async**. Filtre `_status = published`, tri par `order`, `depth: 2` pour résoudre `coverImage`. Un mapper `toMeta()` interne bridge la shape Payload (`stack: { value }[]`) vers la shape attendue par les composants visuels (`stack: string[]`) — **aucun composant n'a été modifié pour ça**.
+- `lib/content.ts` (nouveau) :
+  - `getSiteMeta()` → global `site-meta`, tous les champs avec fallback `""`
+  - `getAbout()` → global `about` (Lexical richText conservé tel quel)
+  - `getTimeline()` → collection `timeline-items` triée par `order`
+  - `getCertifications()` → collection `certifications` triée par `order`
+
+```ts
+// app/(site)/page.tsx
+const [siteMeta, timeline, projects] = await Promise.all([
+  getSiteMeta(),
+  getTimeline(),
+  getProjects(),
+]);
+```
+
+### `components/BlockRenderer.tsx` (nouveau)
+
+Reçoit `blocks: Project["content"]`, fait un `switch (block.blockType)` :
+
+| `blockType` | Rendu |
+| --- | --- |
+| `section-heading` | `<h2 class="mb-3 mt-10 font-mono text-[13px] uppercase">// {text}</h2>` couleur `var(--accent)` |
+| `paragraph` | `<RichText>` avec converters custom (voir ci-dessous) |
+| `code-block` | `<CodeBlock>` existant inchangé |
+| `highlight` | `<Highlight>` existant, rendu Lexical à l'intérieur |
+| `architecture-diagram` | `<ArchitectureDiagram>` existant, JSON serialisé en `<pre>` (aucun MDX legacy n'utilise ce block) |
+| `image` | `<figure>` avec `next/image` |
+
+Les **converters Lexical** (export `proseConverters` du même fichier) répliquent exactement le style de l'ancien `mdxComponents` de la page projet :
+- `paragraph` → `<p class="mb-4 text-[15.5px] leading-[1.75]">` couleur `var(--n700)`
+- `text` avec `format BOLD` → `<strong class="font-medium">` couleur `var(--n900)`
+- `text` avec `format CODE` → `<code>` mono encadré
+- italic / underline / strikethrough conservés
+
+Ces converters sont **partagés** avec `app/(site)/a-propos/page.tsx` qui rend `about.paragraphs[]` / `about.paragraphsAfter[]`.
+
+### Composants existants touchés (minimal)
+
+Deux client components importaient `siteMeta` au top-level (impossible d'injecter une valeur server-side là-dedans sans prop) :
+- `components/Footer.tsx` : signature passe de `() => …` à `({ siteMeta }: { siteMeta: SiteMeta }) => …`. JSX/style 100% identique.
+- `components/ContactGrid.tsx` : idem. La liste `contacts` passe du scope module au scope render.
+
+Aucun autre composant n'a été modifié.
+
+### Revalidation on-demand
+
+`src/hooks/revalidate.ts` exporte cinq hooks consommés par les collections et globals :
+
+| Source | Pages revalidées |
+| --- | --- |
+| collection `projects` (afterChange) | `/projets/{slug}`, `/projets`, `/` |
+| collection `timeline-items` (afterChange) | `/parcours`, `/` |
+| collection `certifications` (afterChange) | `/parcours`, `/a-propos` |
+| global `site-meta` (afterChange) | `/` (layout — touche toutes les pages qui rendent le Footer) |
+| global `about` (afterChange) | `/a-propos` |
+
+Chaque page de `app/(site)/` exporte aussi `export const revalidate = 3600` comme filet de sécurité (1h max si un hook foire silencieusement).
+
+### Compat-shims retirés
+
+- `tsconfig.json` : l'alias `@/content/*` → `legacy/content/*` est supprimé.
+- `lib/projects.ts` : ne lit plus le filesystem, plus aucune référence à `legacy/content/projects`. Le dossier `legacy/` reste comme archive lisible (pas réimportée par le code).
+
+### Critères d'acceptation Étape 4
+
+- [x] `npm run dev` démarre, **toutes les routes répondent 200** : `/`, `/projets`, `/projets/{bientot,zero-trust,poc-phantom,simulation-ba186}`, `/parcours`, `/a-propos`, `/admin`
+- [x] `npm run typecheck` au vert (les 12 erreurs `TS2307: Cannot find module '@/content/...'` ont disparu)
+- [x] `npm run lint` au vert
+- [x] `npm run generate:types:docker` toujours OK
+- [x] Page projet : les sections `// Le problème`, `// L'approche`, `// La sécurité`, etc. sont rendues identiquement (h2 mono uppercase accent), les `**bold**` deviennent `<strong class="font-medium">` couleur `var(--n900)`
+- [x] Page d'accueil : nom, title, description, availability lus depuis le global `site-meta`
+- [x] Page parcours : timeline (8) + certifs (3) dans l'ordre `order` ascendant
+- [x] À propos : paragraphes Lexical rendus avec les classes Tailwind voulues, encart `Highlight`, certifs
+- [ ] **À valider visuellement de ton côté** : screenshot diff pré/post-migration sur les 5 pages publiques
+- [ ] **À tester de ton côté** : modifier un projet dans `/admin`, sauver, vérifier la page publique mise à jour < 1 s plus tard sans rebuild
+
+### Pièges connus
+
+- **`next-mdx-remote` reste dans `dependencies`** alors qu'il n'est plus utilisé. À retirer en Étape 5 dans le cleanup, prudent ici.
+- **Lexical converters basés sur les bitmasks** (`BOLD=1`, `ITALIC=2`, `CODE=16`) : valeurs hardcodées plutôt que d'importer `NodeFormat` de `@payloadcms/richtext-lexical/lexical/utils` (chemin instable). Si Lexical change les bitmasks (peu probable), à mettre à jour.
+
+---
+
 ## Étapes suivantes (pas encore commencées)
 
-- **Étape 4** — Refactor `lib/projects.ts` + nouveau `lib/content.ts`, adapter les pages, `components/BlockRenderer.tsx`. Cette étape **répare le frontend** (typecheck redevient vert, runtime aussi).
 - **Étape 5** — Sécu, `scripts/create-admin.ts`, Dockerfile, finitions.
