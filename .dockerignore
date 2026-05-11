@@ -1,12 +1,34 @@
 node_modules
 .next
 out
+build
 .git
 .gitignore
+.gitattributes
+
+# Docs and editor
 README.md
+MIGRATION.md
 PORTFOLIO_SPEC.md
 *.md
 !CLAUDE.md
-.env*.local
-docker-compose.yml
 .claude
+.vscode
+.idea
+.cursor
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# Local DB and uploads — these live in volumes in prod
+*.db
+*.db-journal
+/media
+
+# Compose isn't shipped into the image
+docker-compose.yml
+
+# Legacy MDX archive — kept in repo for history, useless in the image
+legacy

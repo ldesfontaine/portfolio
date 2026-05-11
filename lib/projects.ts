@@ -23,50 +23,67 @@ export type ProjectDetail = ProjectMeta & {
   content: NonNullable<Project["content"]>;
 };
 
+const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+  try {
+    return await fn();
+  } catch (err) {
+    if (process.env.NEXT_PHASE === "phase-production-build") {
+      return fallback;
+    }
+    throw err;
+  }
+};
+
 export async function getProjects(): Promise<ProjectMeta[]> {
-  const payload = await payloadPromise;
-  const { docs } = await payload.find({
-    collection: "projects",
-    where: { _status: { equals: "published" } },
-    sort: "order",
-    depth: 2,
-    limit: 100,
-  });
-  return docs.map(toMeta);
+  return safe(async () => {
+    const payload = await payloadPromise;
+    const { docs } = await payload.find({
+      collection: "projects",
+      where: { _status: { equals: "published" } },
+      sort: "order",
+      depth: 2,
+      limit: 100,
+    });
+    return docs.map(toMeta);
+  }, []);
 }
 
 export async function getProjectBySlug(
   slug: string,
 ): Promise<ProjectDetail | undefined> {
-  const payload = await payloadPromise;
-  const { docs } = await payload.find({
-    collection: "projects",
-    where: {
-      and: [
-        { slug: { equals: slug } },
-        { _status: { equals: "published" } },
-      ],
-    },
-    depth: 2,
-    limit: 1,
-  });
-  const doc = docs[0];
-  if (!doc) return undefined;
-  return {
-    ...toMeta(doc),
-    content: doc.content ?? [],
-  };
+  return safe<ProjectDetail | undefined>(async () => {
+    const payload = await payloadPromise;
+    const { docs } = await payload.find({
+      collection: "projects",
+      where: {
+        and: [
+          { slug: { equals: slug } },
+          { _status: { equals: "published" } },
+        ],
+      },
+      depth: 2,
+      limit: 1,
+    });
+    const doc = docs[0];
+    if (!doc) return undefined;
+    return {
+      ...toMeta(doc),
+      content: doc.content ?? [],
+    };
+  }, undefined);
 }
 
 export async function getProjectSlugs(): Promise<string[]> {
-  const payload = await payloadPromise;
-  const { docs } = await payload.find({
-    collection: "projects",
-    where: { _status: { equals: "published" } },
-    depth: 0,
-    limit: 100,
-  });
-  return docs
-    .map((d) => d.slug)
-    .filter((s): s is string => typeof s === "string" && s.length > 0);
+  return safe(async () => {
+    const payload = await payloadPromise;
+    const { docs } = await payload.find({
+      collection: "projects",
+      where: { _status: { equals: "published" } },
+      depth: 0,
+      limit: 100,
+    });
+    return docs
+      .map((d) => d.slug)
+      .filter((s): s is string => typeof s === "string" && s.length > 0);
+  }, []);
 }

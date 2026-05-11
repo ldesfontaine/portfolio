@@ -8,8 +8,15 @@ import BlockRenderer from "@/components/BlockRenderer";
 export const revalidate = 3600;
 
 export async function generateStaticParams() {
-  const slugs = await getProjectSlugs();
-  return slugs.map((slug) => ({ slug }));
+  try {
+    const slugs = await getProjectSlugs();
+    return slugs.map((slug) => ({ slug }));
+  } catch {
+    // The database is not reachable at build time (e.g. in a fresh Docker
+    // image where the volume is not yet mounted). Defer to runtime: the
+    // first request to a slug renders it on-demand and ISR caches it.
+    return [];
+  }
 }
 
 export async function generateMetadata({
