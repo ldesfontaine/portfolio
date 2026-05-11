@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { timeline } from "@/content/timeline";
-import { certifications } from "@/content/certifications";
+import { getTimeline, getCertifications } from "@/lib/content";
 import Timeline from "@/components/Timeline";
 import CertifList from "@/components/CertifList";
 
@@ -9,7 +8,13 @@ export const metadata: Metadata = {
   description: "Mon parcours, formations et certifications.",
 };
 
-export default function ParcoursPage() {
+export const revalidate = 3600;
+
+export default async function ParcoursPage() {
+  const [timeline, certifications] = await Promise.all([
+    getTimeline(),
+    getCertifications(),
+  ]);
   return (
     <div className="mx-auto max-w-[680px] px-5 flex flex-col gap-12">
       <section className="flex flex-col gap-4">

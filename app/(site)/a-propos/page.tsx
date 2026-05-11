@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { siteMeta } from "@/content/meta";
-import { aboutStory, quickInfo } from "@/content/about";
-import { certifications } from "@/content/certifications";
+import { RichText } from "@payloadcms/richtext-lexical/react";
+import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
+
+import { getSiteMeta, getAbout, getCertifications } from "@/lib/content";
+import { proseConverters } from "@/components/BlockRenderer";
 import CertifList from "@/components/CertifList";
 import ContactGrid from "@/components/ContactGrid";
 import Highlight from "@/components/Highlight";
@@ -12,7 +14,15 @@ export const metadata: Metadata = {
   description: "Mon histoire, mes certifications et comment me contacter.",
 };
 
-export default function AProposPage() {
+export const revalidate = 3600;
+
+export default async function AProposPage() {
+  const [siteMeta, about, certifications] = await Promise.all([
+    getSiteMeta(),
+    getAbout(),
+    getCertifications(),
+  ]);
+  const quickInfo = about.quickInfo ?? {};
   return (
     <div className="mx-auto max-w-[680px] px-5 flex flex-col gap-14">
       {/* Header */}
@@ -44,7 +54,7 @@ export default function AProposPage() {
                   <circle cx="12" cy="10" r="3" />
                 </svg>
               }
-              text={quickInfo.location}
+              text={quickInfo.location ?? ""}
             />
             <QuickItem
               icon={
@@ -55,7 +65,7 @@ export default function AProposPage() {
                   <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
               }
-              text={quickInfo.rhythm}
+              text={quickInfo.rhythm ?? ""}
             />
             <QuickItem
               icon={
@@ -65,7 +75,7 @@ export default function AProposPage() {
                   <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
                 </svg>
               }
-              text={quickInfo.english}
+              text={quickInfo.english ?? ""}
             />
           </div>
         </div>
@@ -91,27 +101,25 @@ export default function AProposPage() {
           className="font-mono text-[13px] uppercase"
           style={{ color: "var(--accent)" }}
         >
-          // {aboutStory.sectionTitle}
+          // {about.sectionTitle ?? ""}
         </span>
         <div>
-          {aboutStory.paragraphs.map((p, i) => (
-            <p
-              key={i}
-              className="mb-4 text-[15.5px] leading-[1.75]"
-              style={{ color: "var(--n700)" }}
-            >
-              {p}
-            </p>
+          {(about.paragraphs ?? []).map((p, i) => (
+            <RichText
+              key={p.id ?? i}
+              data={p.content as SerializedEditorState}
+              converters={proseConverters}
+              disableContainer
+            />
           ))}
-          <Highlight>{aboutStory.highlight}</Highlight>
-          {aboutStory.paragraphsAfter.map((p, i) => (
-            <p
-              key={i}
-              className="mb-4 text-[15.5px] leading-[1.75]"
-              style={{ color: "var(--n700)" }}
-            >
-              {p}
-            </p>
+          {about.highlight && <Highlight>{about.highlight}</Highlight>}
+          {(about.paragraphsAfter ?? []).map((p, i) => (
+            <RichText
+              key={p.id ?? i}
+              data={p.content as SerializedEditorState}
+              converters={proseConverters}
+              disableContainer
+            />
           ))}
         </div>
       </section>
@@ -135,7 +143,7 @@ export default function AProposPage() {
         >
           // contact
         </span>
-        <ContactGrid />
+        <ContactGrid siteMeta={siteMeta} />
       </section>
     </div>
   );

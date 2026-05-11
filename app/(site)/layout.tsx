@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
+import { getSiteMeta } from "@/lib/content";
 import "./globals.css";
+
+export const revalidate = 3600;
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -38,11 +41,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const siteMeta = await getSiteMeta();
   return (
     <html lang="fr" className={`${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
@@ -55,7 +59,7 @@ export default function RootLayout({
       <body className="flex min-h-screen flex-col">
         <Nav />
         <main className="flex-1 py-12">{children}</main>
-        <Footer />
+        <Footer siteMeta={siteMeta} />
       </body>
     </html>
   );

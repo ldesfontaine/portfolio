@@ -7,8 +7,10 @@ export const metadata: Metadata = {
   description: "Tous mes projets DevSecOps & sécurité des infrastructures.",
 };
 
-export default function ProjetsPage() {
-  const projects = getProjects();
+export const revalidate = 3600;
+
+export default async function ProjetsPage() {
+  const projects = await getProjects();
 
   return (
     <div className="mx-auto max-w-[680px] px-5 flex flex-col gap-4">

@@ -1,13 +1,18 @@
 import Link from "next/link";
-import { siteMeta } from "@/content/meta";
-import { timeline } from "@/content/timeline";
+import { getSiteMeta, getTimeline } from "@/lib/content";
 import { getProjects } from "@/lib/projects";
 import StatusBadge from "@/components/StatusBadge";
 import ProjectCard from "@/components/ProjectCard";
 import Timeline from "@/components/Timeline";
 
-export default function Home() {
-  const projects = getProjects();
+export const revalidate = 3600;
+
+export default async function Home() {
+  const [siteMeta, timeline, projects] = await Promise.all([
+    getSiteMeta(),
+    getTimeline(),
+    getProjects(),
+  ]);
 
   return (
     <>

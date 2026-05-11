@@ -1,42 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MDXRemote } from "next-mdx-remote/rsc";
 import { getProjects, getProjectBySlug, getProjectSlugs } from "@/lib/projects";
 import ProjectNav from "@/components/ProjectNav";
-import CodeBlock from "@/components/CodeBlock";
-import Highlight from "@/components/Highlight";
-import ArchitectureDiagram from "@/components/ArchitectureDiagram";
+import BlockRenderer from "@/components/BlockRenderer";
 
-const mdxComponents = {
-  CodeBlock,
-  Highlight,
-  ArchitectureDiagram,
-  h2: ({ children }: { children?: React.ReactNode }) => (
-    <h2
-      className="mb-3 mt-10 font-mono text-[13px] uppercase"
-      style={{ color: "var(--accent)" }}
-    >
-      // {children}
-    </h2>
-  ),
-  p: ({ children }: { children?: React.ReactNode }) => (
-    <p
-      className="mb-4 text-[15.5px] leading-[1.75]"
-      style={{ color: "var(--n700)" }}
-    >
-      {children}
-    </p>
-  ),
-  strong: ({ children }: { children?: React.ReactNode }) => (
-    <strong className="font-medium" style={{ color: "var(--n900)" }}>
-      {children}
-    </strong>
-  ),
-};
+export const revalidate = 3600;
 
-export function generateStaticParams() {
-  return getProjectSlugs().map((slug) => ({ slug }));
+export async function generateStaticParams() {
+  const slugs = await getProjectSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({
@@ -45,7 +18,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const project = await getProjectBySlug(slug);
   if (!project) return {};
   return {
     title: project.title,
@@ -59,10 +32,10 @@ export default async function ProjectPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const project = await getProjectBySlug(slug);
   if (!project) notFound();
 
-  const all = getProjects();
+  const all = await getProjects();
   const idx = all.findIndex((p) => p.slug === slug);
   const prev = idx > 0 ? all[idx - 1] : undefined;
   const next = idx < all.length - 1 ? all[idx + 1] : undefined;
@@ -145,9 +118,9 @@ export default async function ProjectPage({
         ))}
       </div>
 
-      {/* MDX Content */}
+      {/* Content blocks */}
       <div>
-        <MDXRemote source={project.content} components={mdxComponents} />
+        <BlockRenderer blocks={project.content} />
       </div>
 
       {/* Tags */}
