@@ -6,6 +6,7 @@ import { CodeBlock } from "../blocks/CodeBlock";
 import { Highlight } from "../blocks/Highlight";
 import { ArchitectureDiagram } from "../blocks/ArchitectureDiagram";
 import { ImageBlock } from "../blocks/ImageBlock";
+import { revalidateProjects } from "../hooks/revalidate";
 
 const slugify = (input: string): string =>
   input
@@ -41,6 +42,7 @@ export const Projects: CollectionConfig = {
   },
   hooks: {
     beforeChange: [autoSlug],
+    afterChange: [revalidateProjects],
   },
   fields: [
     {

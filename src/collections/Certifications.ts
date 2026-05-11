@@ -1,7 +1,12 @@
 import type { CollectionConfig } from "payload";
 
+import { revalidateCertifications } from "../hooks/revalidate";
+
 export const Certifications: CollectionConfig = {
   slug: "certifications",
+  hooks: {
+    afterChange: [revalidateCertifications],
+  },
   labels: {
     singular: "Certification",
     plural: "Certifications",

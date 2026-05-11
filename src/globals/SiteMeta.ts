@@ -1,10 +1,15 @@
 import type { GlobalConfig } from "payload";
 
+import { revalidateSiteMeta } from "../hooks/revalidate";
+
 export const SiteMeta: GlobalConfig = {
   slug: "site-meta",
   label: "Métadonnées du site",
   admin: {
     group: "Configuration",
+  },
+  hooks: {
+    afterChange: [revalidateSiteMeta],
   },
   fields: [
     {

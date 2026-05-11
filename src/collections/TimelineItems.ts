@@ -1,7 +1,12 @@
 import type { CollectionConfig } from "payload";
 
+import { revalidateTimeline } from "../hooks/revalidate";
+
 export const TimelineItems: CollectionConfig = {
   slug: "timeline-items",
+  hooks: {
+    afterChange: [revalidateTimeline],
+  },
   labels: {
     singular: "Item du parcours",
     plural: "Items du parcours",
