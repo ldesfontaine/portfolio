@@ -42,3 +42,10 @@ CLAUDE.md
 .DS_Store
 *.pem
 .vercel
+
+# payload
+payload.db
+payload.db-journal
+payload-types.ts
+/media/*
+!/media/.gitkeep

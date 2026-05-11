@@ -1,0 +1,12 @@
+{
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": [
+    "app/(payload)/admin/importMap.js",
+    "payload-types.ts",
+    ".next/**",
+    "node_modules/**"
+  ],
+  "rules": {
+    "react/jsx-no-comment-textnodes": "off"
+  }
+}
