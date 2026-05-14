@@ -4,6 +4,7 @@ import config from "@payload-config";
 import type {
   About as AboutGlobal,
   Certification as PayloadCertification,
+  Media,
   SiteMeta as SiteMetaGlobal,
   TimelineItem as PayloadTimelineItem,
 } from "@/payload-types";
@@ -22,6 +23,13 @@ const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
   }
 };
 
+const mediaUrl = (
+  field: Media | number | null | undefined,
+): string | null =>
+  field && typeof field === "object" && typeof field.url === "string"
+    ? field.url
+    : null;
+
 const emptySiteMeta: SiteMeta = {
   name: "",
   title: "",
@@ -31,23 +39,28 @@ const emptySiteMeta: SiteMeta = {
   linkedin: "",
   location: "",
   availability: "",
+  cvUrl: null,
 };
 
-const emptyAbout = {
+export type About = Omit<AboutGlobal, "photo"> & { photoUrl: string | null };
+
+const emptyAbout: About = {
   id: 0,
   sectionTitle: null,
-  paragraphs: [],
-  highlight: null,
-  paragraphsAfter: [],
+  content: [],
   quickInfo: {},
+  photoUrl: null,
   updatedAt: "",
   createdAt: "",
-} as unknown as AboutGlobal;
+} as unknown as About;
 
 export async function getSiteMeta(): Promise<SiteMeta> {
   return safe(async () => {
     const payload = await payloadPromise;
-    const doc = (await payload.findGlobal({ slug: "site-meta" })) as SiteMetaGlobal;
+    const doc = (await payload.findGlobal({
+      slug: "site-meta",
+      depth: 1,
+    })) as SiteMetaGlobal;
     return {
       name: doc.name ?? "",
       title: doc.title ?? "",
@@ -57,16 +70,23 @@ export async function getSiteMeta(): Promise<SiteMeta> {
       linkedin: doc.linkedin ?? "",
       location: doc.location ?? "",
       availability: doc.availability ?? "",
+      cvUrl: mediaUrl(doc.cv as Media | number | null | undefined),
     };
   }, emptySiteMeta);
 }
 
-export type About = AboutGlobal;
-
 export async function getAbout(): Promise<About> {
   return safe(async () => {
     const payload = await payloadPromise;
-    return (await payload.findGlobal({ slug: "about" })) as AboutGlobal;
+    const doc = (await payload.findGlobal({
+      slug: "about",
+      depth: 1,
+    })) as AboutGlobal;
+    const { photo, ...rest } = doc;
+    return {
+      ...rest,
+      photoUrl: mediaUrl(photo as Media | number | null | undefined),
+    };
   }, emptyAbout);
 }
 
@@ -83,8 +103,7 @@ export async function getTimeline(): Promise<TimelineItem[]> {
       date: d.date,
       title: d.title,
       subtitle: d.subtitle,
-      status: d.status === "active" ? "active" : undefined,
-      highlight: d.highlight ?? undefined,
+      activeLabel: d.activeLabel ?? undefined,
     }));
   }, []);
 }

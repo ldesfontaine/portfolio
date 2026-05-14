@@ -5,6 +5,8 @@ import StatusBadge from "@/components/StatusBadge";
 import ProjectCard from "@/components/ProjectCard";
 import Timeline from "@/components/Timeline";
 
+export const dynamic = "force-dynamic";
+
 export const revalidate = 3600;
 
 export default async function Home() {
@@ -53,9 +55,11 @@ export default async function Home() {
                 <path d="M6 3l5 5-5 5" />
               </svg>
             </Link>
-            <a href="/cv.pdf" className="btn-ghost">
-              CV
-            </a>
+            {siteMeta.cvUrl ? (
+              <a href={siteMeta.cvUrl} className="btn-ghost">
+                CV
+              </a>
+            ) : null}
           </div>
         </section>
       </div>

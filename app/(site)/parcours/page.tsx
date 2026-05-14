@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "Mon parcours, formations et certifications.",
 };
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function ParcoursPage() {
   const [timeline, certifications] = await Promise.all([

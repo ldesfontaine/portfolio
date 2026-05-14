@@ -15,8 +15,7 @@ export interface TimelineItem {
   date: string;
   title: string;
   subtitle: string;
-  status?: "active";
-  highlight?: string;
+  activeLabel?: string;
 }
 
 export interface Certification {
@@ -35,4 +34,5 @@ export interface SiteMeta {
   linkedin: string;
   location: string;
   availability: string;
+  cvUrl: string | null;
 }

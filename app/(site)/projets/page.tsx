@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Tous mes projets DevSecOps & sécurité des infrastructures.",
 };
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function ProjetsPage() {
   const projects = await getProjects();

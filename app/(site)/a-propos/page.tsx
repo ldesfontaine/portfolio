@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { RichText } from "@payloadcms/richtext-lexical/react";
-import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
 
 import { getSiteMeta, getAbout, getCertifications } from "@/lib/content";
-import { proseConverters } from "@/components/BlockRenderer";
+import BlockRenderer, { type RenderBlock } from "@/components/BlockRenderer";
 import CertifList from "@/components/CertifList";
 import ContactGrid from "@/components/ContactGrid";
-import Highlight from "@/components/Highlight";
 
 export const metadata: Metadata = {
   title: "À propos",
   description: "Mon histoire, mes certifications et comment me contacter.",
 };
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function AProposPage() {
   const [siteMeta, about, certifications] = await Promise.all([
@@ -23,6 +20,7 @@ export default async function AProposPage() {
     getCertifications(),
   ]);
   const quickInfo = about.quickInfo ?? {};
+  const content = (about.content ?? []) as RenderBlock[];
   return (
     <div className="mx-auto max-w-[680px] px-5 flex flex-col gap-14">
       {/* Header */}
@@ -79,20 +77,22 @@ export default async function AProposPage() {
             />
           </div>
         </div>
-        <div className="order-last sm:order-none">
-          <div
-            className="h-[190px] w-[160px] overflow-hidden rounded-[10px]"
-            style={{ background: "var(--n50)", border: "0.5px solid var(--n100)" }}
-          >
-            <Image
-              src="/photo.png"
-              alt="Lucas Desfontaine"
-              width={160}
-              height={190}
-              className="h-full w-full object-cover"
-            />
+        {about.photoUrl ? (
+          <div className="order-last sm:order-none">
+            <div
+              className="h-[190px] w-[160px] overflow-hidden rounded-[10px]"
+              style={{ background: "var(--n50)", border: "0.5px solid var(--n100)" }}
+            >
+              <Image
+                src={about.photoUrl}
+                alt={siteMeta.name || "Photo"}
+                width={160}
+                height={190}
+                className="h-full w-full object-cover"
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
       </section>
 
       {/* Story */}
@@ -104,23 +104,7 @@ export default async function AProposPage() {
           // {about.sectionTitle ?? ""}
         </span>
         <div>
-          {(about.paragraphs ?? []).map((p, i) => (
-            <RichText
-              key={p.id ?? i}
-              data={p.content as SerializedEditorState}
-              converters={proseConverters}
-              disableContainer
-            />
-          ))}
-          {about.highlight && <Highlight>{about.highlight}</Highlight>}
-          {(about.paragraphsAfter ?? []).map((p, i) => (
-            <RichText
-              key={p.id ?? i}
-              data={p.content as SerializedEditorState}
-              converters={proseConverters}
-              disableContainer
-            />
-          ))}
+          <BlockRenderer blocks={content} />
         </div>
       </section>
 
