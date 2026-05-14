@@ -25,6 +25,9 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    components: {
+      beforeDashboard: ["/src/components/admin/BackupCard"],
+    },
   },
   i18n: {
     fallbackLanguage: "fr",
