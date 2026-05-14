@@ -6,7 +6,12 @@ import { CodeBlock } from "../blocks/CodeBlock";
 import { Highlight } from "../blocks/Highlight";
 import { ArchitectureDiagram } from "../blocks/ArchitectureDiagram";
 import { ImageBlock } from "../blocks/ImageBlock";
+import { ProjectHeader } from "../blocks/ProjectHeader";
+import { ProjectMeta } from "../blocks/ProjectMeta";
+import { ProjectTags } from "../blocks/ProjectTags";
+import { ProjectNav } from "../blocks/ProjectNav";
 import { revalidateProjects } from "../hooks/revalidate";
+import { makeUniqueOrder } from "../hooks/uniqueOrder";
 
 const slugify = (input: string): string =>
   input
@@ -34,6 +39,7 @@ export const Projects: CollectionConfig = {
     defaultColumns: ["title", "category", "order", "_status"],
     group: "Contenu",
   },
+  defaultSort: "order",
   versions: {
     drafts: {
       autosave: false,
@@ -42,7 +48,7 @@ export const Projects: CollectionConfig = {
   },
   hooks: {
     beforeChange: [autoSlug],
-    afterChange: [revalidateProjects],
+    afterChange: [makeUniqueOrder("projects"), revalidateProjects],
   },
   fields: [
     {
@@ -162,28 +168,24 @@ export const Projects: CollectionConfig = {
       },
     },
     {
-      name: "coverImage",
-      label: "Image de couverture",
-      type: "upload",
-      relationTo: "media",
-      admin: {
-        description: "Optionnelle — utilisée pour la carte et l'OG.",
-      },
-    },
-    {
       name: "content",
       label: "Contenu du write-up",
       type: "blocks",
       blocks: [
+        ProjectHeader,
+        ProjectMeta,
         SectionHeading,
         Paragraph,
         CodeBlock,
         Highlight,
         ArchitectureDiagram,
         ImageBlock,
+        ProjectTags,
+        ProjectNav,
       ],
       admin: {
-        description: "Assemble le write-up bloc par bloc.",
+        description:
+          "Assemble la page bloc par bloc. Si tu n'ajoutes aucun bloc structurel (en-tête, méta, tags, nav), un layout par défaut est appliqué automatiquement.",
       },
     },
   ],

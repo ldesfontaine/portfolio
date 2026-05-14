@@ -1,37 +1,49 @@
 import { revalidatePath } from "next/cache";
 import type { CollectionAfterChangeHook, GlobalAfterChangeHook } from "payload";
 
+const safeRevalidate = (
+  path: string,
+  type?: Parameters<typeof revalidatePath>[1],
+) => {
+  try {
+    revalidatePath(path, type);
+  } catch {
+    // revalidatePath requires a Next.js request context; ignore failures when
+    // hooks fire from standalone scripts (seed, migrate, etc.).
+  }
+};
+
 export const revalidateProjects: CollectionAfterChangeHook = ({
   doc,
   operation,
 }) => {
   if (operation !== "create" && operation !== "update") return doc;
   if (typeof doc.slug === "string" && doc.slug.length > 0) {
-    revalidatePath(`/projets/${doc.slug}`);
+    safeRevalidate(`/projets/${doc.slug}`);
   }
-  revalidatePath("/projets");
-  revalidatePath("/");
+  safeRevalidate("/projets");
+  safeRevalidate("/");
   return doc;
 };
 
 export const revalidateTimeline: CollectionAfterChangeHook = ({ doc }) => {
-  revalidatePath("/parcours");
-  revalidatePath("/");
+  safeRevalidate("/parcours");
+  safeRevalidate("/");
   return doc;
 };
 
 export const revalidateCertifications: CollectionAfterChangeHook = ({ doc }) => {
-  revalidatePath("/parcours");
-  revalidatePath("/a-propos");
+  safeRevalidate("/parcours");
+  safeRevalidate("/a-propos");
   return doc;
 };
 
 export const revalidateSiteMeta: GlobalAfterChangeHook = ({ doc }) => {
-  revalidatePath("/", "layout");
+  safeRevalidate("/", "layout");
   return doc;
 };
 
 export const revalidateAbout: GlobalAfterChangeHook = ({ doc }) => {
-  revalidatePath("/a-propos");
+  safeRevalidate("/a-propos");
   return doc;
 };

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import {
   RichText,
   type JSXConvertersFunction,
@@ -12,12 +13,64 @@ import {
   type SerializedEditorState,
 } from "@payloadcms/richtext-lexical/lexical";
 
-import type { Media, Project } from "@/payload-types";
+import type { About, Media, Project } from "@/payload-types";
+import type { ProjectMeta } from "@/lib/types";
 import CodeBlockComponent from "./CodeBlock";
 import HighlightComponent from "./Highlight";
 import ArchitectureDiagramComponent from "./ArchitectureDiagram";
+import ProjectNavComponent from "./ProjectNav";
 
-type Block = NonNullable<Project["content"]>[number];
+type ContentBlock =
+  | NonNullable<Project["content"]>[number]
+  | NonNullable<About["content"]>[number];
+
+type ProjectContext = ProjectMeta;
+type StructuralBlock =
+  | { blockType: "project-header"; showBackLink?: boolean | null; id?: string | null }
+  | { blockType: "project-meta"; id?: string | null }
+  | { blockType: "project-tags"; id?: string | null }
+  | { blockType: "project-nav"; id?: string | null };
+
+export type RenderBlock = ContentBlock | StructuralBlock;
+
+type LexicalTextNode = { text: string; format: number };
+
+const renderInlineText = ({ node }: { node: LexicalTextNode }) => {
+  let element: React.ReactNode = node.text;
+  if (node.format & IS_CODE) {
+    element = (
+      <code
+        className="rounded px-1 py-0.5 font-mono text-[13px]"
+        style={{
+          background: "var(--code-bg)",
+          color: "var(--n900)",
+          border: "0.5px solid var(--code-border)",
+        }}
+      >
+        {element}
+      </code>
+    );
+  }
+  if (node.format & IS_UNDERLINE) {
+    element = <span style={{ textDecoration: "underline" }}>{element}</span>;
+  }
+  if (node.format & IS_STRIKETHROUGH) {
+    element = (
+      <span style={{ textDecoration: "line-through" }}>{element}</span>
+    );
+  }
+  if (node.format & IS_ITALIC) {
+    element = <em>{element}</em>;
+  }
+  if (node.format & IS_BOLD) {
+    element = (
+      <strong className="font-medium" style={{ color: "var(--n900)" }}>
+        {element}
+      </strong>
+    );
+  }
+  return element;
+};
 
 export const proseConverters: JSXConvertersFunction = ({ defaultConverters }) => ({
   ...defaultConverters,
@@ -32,42 +85,23 @@ export const proseConverters: JSXConvertersFunction = ({ defaultConverters }) =>
       </p>
     );
   },
-  text: ({ node }) => {
-    let element: React.ReactNode = node.text;
-    if (node.format & IS_CODE) {
-      element = (
-        <code
-          className="rounded px-1 py-0.5 font-mono text-[13px]"
-          style={{
-            background: "var(--code-bg)",
-            color: "var(--n900)",
-            border: "0.5px solid var(--code-border)",
-          }}
-        >
-          {element}
-        </code>
-      );
-    }
-    if (node.format & IS_UNDERLINE) {
-      element = <span style={{ textDecoration: "underline" }}>{element}</span>;
-    }
-    if (node.format & IS_STRIKETHROUGH) {
-      element = (
-        <span style={{ textDecoration: "line-through" }}>{element}</span>
-      );
-    }
-    if (node.format & IS_ITALIC) {
-      element = <em>{element}</em>;
-    }
-    if (node.format & IS_BOLD) {
-      element = (
-        <strong className="font-medium" style={{ color: "var(--n900)" }}>
-          {element}
-        </strong>
-      );
-    }
-    return element;
+  text: renderInlineText,
+});
+
+export const highlightConverters: JSXConvertersFunction = ({ defaultConverters }) => ({
+  ...defaultConverters,
+  paragraph: ({ node, nodesToJSX }) => {
+    const children = nodesToJSX({ nodes: node.children });
+    return (
+      <p
+        className="text-base leading-[1.65] [&:not(:last-child)]:mb-3"
+        style={{ color: "var(--n900)" }}
+      >
+        {children?.length ? children : <br />}
+      </p>
+    );
   },
+  text: renderInlineText,
 });
 
 type RichTextLike = { root?: unknown } & Record<string, unknown>;
@@ -80,12 +114,149 @@ const isLexicalState = (
   "root" in value &&
   !!(value as RichTextLike).root;
 
-export default function BlockRenderer({ blocks }: { blocks: Block[] }) {
+export const STRUCTURAL_BLOCK_TYPES = new Set([
+  "project-header",
+  "project-meta",
+  "project-tags",
+  "project-nav",
+]);
+
+export const hasStructuralBlocks = (blocks: RenderBlock[] | null | undefined) =>
+  !!blocks?.some((b) => STRUCTURAL_BLOCK_TYPES.has(b.blockType));
+
+export default function BlockRenderer({
+  blocks,
+  project,
+  prev,
+  next,
+}: {
+  blocks: RenderBlock[];
+  project?: ProjectContext;
+  prev?: ProjectMeta;
+  next?: ProjectMeta;
+}) {
   return (
     <>
       {blocks.map((block, i) => {
-        const key = block.id ?? `${block.blockType}-${i}`;
+        const key = ("id" in block ? block.id : undefined) ?? `${block.blockType}-${i}`;
         switch (block.blockType) {
+          case "project-header": {
+            if (!project) return null;
+            const showBackLink = block.showBackLink !== false;
+            return (
+              <header key={key} className="flex flex-col">
+                {showBackLink && (
+                  <Link
+                    href="/projets"
+                    className="mb-8 inline-flex items-center gap-1 font-mono text-xs transition-colors duration-200"
+                    style={{ color: "var(--n400)" }}
+                  >
+                    ← retour aux projets
+                  </Link>
+                )}
+                <span
+                  className="font-mono text-xs uppercase"
+                  style={{ color: "var(--accent)" }}
+                >
+                  {project.category}
+                </span>
+                <h1
+                  className="mt-2 text-[34px] font-medium"
+                  style={{ color: "var(--n900)" }}
+                >
+                  {project.title}
+                </h1>
+                <p
+                  className="mt-2 max-w-[560px] text-[17px]"
+                  style={{ color: "var(--n500)" }}
+                >
+                  {project.description}
+                </p>
+              </header>
+            );
+          }
+          case "project-meta": {
+            if (!project) return null;
+            const stack = project.stack ?? [];
+            const metaItems: {
+              label: string;
+              value: string;
+              isLink?: boolean;
+            }[] = [
+              { label: "Type", value: project.type },
+              { label: "Période", value: project.period },
+              { label: "Stack", value: stack.join(", ") },
+              ...(project.github
+                ? [{ label: "GitHub", value: project.github, isLink: true }]
+                : []),
+            ];
+            return (
+              <div
+                key={key}
+                className="my-8 grid grid-cols-2 gap-x-6 gap-y-4 py-4 sm:grid-cols-[auto_auto_1fr_auto]"
+                style={{
+                  borderTop: "0.5px solid var(--n100)",
+                  borderBottom: "0.5px solid var(--n100)",
+                }}
+              >
+                {metaItems.map((m) => (
+                  <div key={m.label} className="flex flex-col gap-1">
+                    <span
+                      className="font-mono text-[10.5px] uppercase"
+                      style={{ color: "var(--n300)" }}
+                    >
+                      {m.label}
+                    </span>
+                    {m.isLink ? (
+                      <a
+                        href={m.value}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[13.5px] font-medium transition-colors duration-200"
+                        style={{ color: "var(--accent)" }}
+                      >
+                        Voir le repo
+                      </a>
+                    ) : (
+                      <span
+                        className="text-[13.5px] font-medium"
+                        style={{ color: "var(--n700)" }}
+                      >
+                        {m.value}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          }
+          case "project-tags": {
+            if (!project) return null;
+            const stack = project.stack ?? [];
+            return (
+              <div key={key} className="mt-10 flex flex-wrap gap-1.5">
+                {stack.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded px-2 py-0.5 font-mono text-[11px]"
+                    style={{
+                      color: "var(--n500)",
+                      background: "var(--n50)",
+                      border: "0.5px solid var(--n100)",
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            );
+          }
+          case "project-nav":
+            return (
+              <div key={key} className="mt-8">
+                <ProjectNavComponent prev={prev} next={next} />
+              </div>
+            );
           case "section-heading":
             return (
               <h2
@@ -121,7 +292,7 @@ export default function BlockRenderer({ blocks }: { blocks: Block[] }) {
                 {isLexicalState(block.content) ? (
                   <RichText
                     data={block.content}
-                    converters={proseConverters}
+                    converters={highlightConverters}
                     disableContainer
                   />
                 ) : null}

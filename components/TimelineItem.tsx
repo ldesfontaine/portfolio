@@ -38,12 +38,12 @@ export default function TimelineItem({
         >
           {item.subtitle}
         </span>
-        {item.highlight && (
+        {item.activeLabel && (
           <span
             className="mt-1 font-mono text-[11px]"
             style={{ color: "var(--accent)" }}
           >
-            {item.highlight}
+            {item.activeLabel}
           </span>
         )}
       </div>
@@ -69,7 +69,7 @@ export default function TimelineItem({
             className="mt-[6px] h-2 w-2 shrink-0 rounded-full"
             style={{
               border: "2px solid var(--accent)",
-              background: item.status === "active" ? "var(--accent)" : "var(--card-bg)",
+              background: item.activeLabel ? "var(--accent)" : "var(--card-bg)",
             }}
           />
           {!isLast && (
@@ -97,12 +97,12 @@ export default function TimelineItem({
           >
             {item.subtitle}
           </span>
-          {item.highlight && (
+          {item.activeLabel && (
             <span
               className="mt-1 inline-block font-mono text-[11px]"
               style={{ color: "var(--accent)" }}
             >
-              {item.highlight}
+              {item.activeLabel}
             </span>
           )}
         </div>

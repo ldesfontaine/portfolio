@@ -1,11 +1,12 @@
 import type { CollectionConfig } from "payload";
 
 import { revalidateTimeline } from "../hooks/revalidate";
+import { makeUniqueOrder } from "../hooks/uniqueOrder";
 
 export const TimelineItems: CollectionConfig = {
   slug: "timeline-items",
   hooks: {
-    afterChange: [revalidateTimeline],
+    afterChange: [makeUniqueOrder("timeline-items"), revalidateTimeline],
   },
   labels: {
     singular: "Item du parcours",
@@ -13,9 +14,10 @@ export const TimelineItems: CollectionConfig = {
   },
   admin: {
     useAsTitle: "title",
-    defaultColumns: ["title", "date", "order"],
+    defaultColumns: ["title", "date", "activeLabel", "order"],
     group: "Contenu",
   },
+  defaultSort: "order",
   fields: [
     {
       name: "date",
@@ -39,20 +41,12 @@ export const TimelineItems: CollectionConfig = {
       required: true,
     },
     {
-      name: "status",
-      label: "Statut",
-      type: "select",
-      options: [{ label: "Actif", value: "active" }],
-      admin: {
-        description: "Marque l'item comme en cours (optionnel).",
-      },
-    },
-    {
-      name: "highlight",
-      label: "Étiquette",
+      name: "activeLabel",
+      label: "Étiquette « actif »",
       type: "text",
       admin: {
-        description: "Badge complémentaire (« en cours », « actif », ...).",
+        description:
+          "Si rempli, l'item est marqué comme actif (point plein sur la timeline) et le texte est affiché sous le sous-titre. Laisse vide pour un item passé.",
       },
     },
     {

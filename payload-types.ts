@@ -155,6 +155,8 @@ export interface User {
   collection: 'users';
 }
 /**
+ * Bibliothèque centrale de tous les fichiers uploadés (images des projets, photo, CV PDF). Tout fichier ajouté ici devient sélectionnable depuis les champs « upload » des autres collections (En-tête de projet, image dans un write-up, photo de l'À propos, CV des métadonnées, etc.). La liste est vide tant que tu n'as rien uploadé.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
@@ -249,14 +251,21 @@ export interface Project {
    */
   order: number;
   /**
-   * Optionnelle — utilisée pour la carte et l'OG.
-   */
-  coverImage?: (number | null) | Media;
-  /**
-   * Assemble le write-up bloc par bloc.
+   * Assemble la page bloc par bloc. Si tu n'ajoutes aucun bloc structurel (en-tête, méta, tags, nav), un layout par défaut est appliqué automatiquement.
    */
   content?:
     | (
+        | {
+            showBackLink?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'project-header';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'project-meta';
+          }
         | {
             /**
              * Rendu en mono uppercase préfixé `//` dans la couleur d'accent.
@@ -353,6 +362,16 @@ export interface Project {
             blockName?: string | null;
             blockType: 'image';
           }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'project-tags';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'project-nav';
+          }
       )[]
     | null;
   updatedAt: string;
@@ -372,13 +391,9 @@ export interface TimelineItem {
   title: string;
   subtitle: string;
   /**
-   * Marque l'item comme en cours (optionnel).
+   * Si rempli, l'item est marqué comme actif (point plein sur la timeline) et le texte est affiché sous le sous-titre. Laisse vide pour un item passé.
    */
-  status?: 'active' | null;
-  /**
-   * Badge complémentaire (« en cours », « actif », ...).
-   */
-  highlight?: string | null;
+  activeLabel?: string | null;
   order: number;
   updatedAt: string;
   createdAt: string;
@@ -580,10 +595,22 @@ export interface ProjectsSelect<T extends boolean = true> {
   type?: T;
   badge?: T;
   order?: T;
-  coverImage?: T;
   content?:
     | T
     | {
+        'project-header'?:
+          | T
+          | {
+              showBackLink?: T;
+              id?: T;
+              blockName?: T;
+            };
+        'project-meta'?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
         'section-heading'?:
           | T
           | {
@@ -629,6 +656,18 @@ export interface ProjectsSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        'project-tags'?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        'project-nav'?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
       };
   updatedAt?: T;
   createdAt?: T;
@@ -642,8 +681,7 @@ export interface TimelineItemsSelect<T extends boolean = true> {
   date?: T;
   title?: T;
   subtitle?: T;
-  status?: T;
-  highlight?: T;
+  activeLabel?: T;
   order?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -721,6 +759,10 @@ export interface SiteMeta {
   linkedin?: string | null;
   location?: string | null;
   availability?: string | null;
+  /**
+   * Optionnel — si vide, le bouton CV n'est pas affiché sur le site.
+   */
+  cv?: (number | null) | Media;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -730,56 +772,69 @@ export interface SiteMeta {
  */
 export interface About {
   id: number;
-  sectionTitle?: string | null;
-  paragraphs?:
-    | {
-        content: {
-          root: {
-            type: string;
-            children: {
-              type: any;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        };
-        id?: string | null;
-      }[]
-    | null;
   /**
-   * Bloc d'emphase intercalé entre les deux groupes de paragraphes.
+   * Optionnelle — si vide, la photo n'est pas affichée sur le site.
    */
-  highlight?: string | null;
-  paragraphsAfter?:
-    | {
-        content: {
-          root: {
-            type: string;
-            children: {
-              type: any;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        };
-        id?: string | null;
-      }[]
-    | null;
+  photo?: (number | null) | Media;
   quickInfo?: {
+    location?: string | null;
     rhythm?: string | null;
     english?: string | null;
-    location?: string | null;
   };
+  sectionTitle?: string | null;
+  /**
+   * Ajoute, retire, réordonne librement des paragraphes et des encarts.
+   */
+  content?:
+    | (
+        | {
+            /**
+             * Texte courant. Le gras (`<strong>`) est rendu en accent neutre fort.
+             */
+            text: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'paragraph';
+          }
+        | {
+            /**
+             * Bloc d'emphase rendu avec le composant Highlight (bordure colorée).
+             */
+            content: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'highlight';
+          }
+      )[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -796,6 +851,7 @@ export interface SiteMetaSelect<T extends boolean = true> {
   linkedin?: T;
   location?: T;
   availability?: T;
+  cv?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -805,26 +861,32 @@ export interface SiteMetaSelect<T extends boolean = true> {
  * via the `definition` "about_select".
  */
 export interface AboutSelect<T extends boolean = true> {
-  sectionTitle?: T;
-  paragraphs?:
-    | T
-    | {
-        content?: T;
-        id?: T;
-      };
-  highlight?: T;
-  paragraphsAfter?:
-    | T
-    | {
-        content?: T;
-        id?: T;
-      };
+  photo?: T;
   quickInfo?:
     | T
     | {
+        location?: T;
         rhythm?: T;
         english?: T;
-        location?: T;
+      };
+  sectionTitle?: T;
+  content?:
+    | T
+    | {
+        paragraph?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+              blockName?: T;
+            };
+        highlight?:
+          | T
+          | {
+              content?: T;
+              id?: T;
+              blockName?: T;
+            };
       };
   updatedAt?: T;
   createdAt?: T;

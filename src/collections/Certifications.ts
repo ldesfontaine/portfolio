@@ -1,11 +1,12 @@
 import type { CollectionConfig } from "payload";
 
 import { revalidateCertifications } from "../hooks/revalidate";
+import { makeUniqueOrder } from "../hooks/uniqueOrder";
 
 export const Certifications: CollectionConfig = {
   slug: "certifications",
   hooks: {
-    afterChange: [revalidateCertifications],
+    afterChange: [makeUniqueOrder("certifications"), revalidateCertifications],
   },
   labels: {
     singular: "Certification",
@@ -16,6 +17,7 @@ export const Certifications: CollectionConfig = {
     defaultColumns: ["name", "organization", "status", "order"],
     group: "Contenu",
   },
+  defaultSort: "order",
   fields: [
     {
       name: "name",

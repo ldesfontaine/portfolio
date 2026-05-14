@@ -58,6 +58,16 @@ export const SiteMeta: GlobalConfig = {
       label: "Disponibilité",
       type: "text",
     },
+    {
+      name: "cv",
+      label: "CV (PDF)",
+      type: "upload",
+      relationTo: "media",
+      admin: {
+        description:
+          "Optionnel — si vide, le bouton CV n'est pas affiché sur le site.",
+      },
+    },
   ],
 };
 
