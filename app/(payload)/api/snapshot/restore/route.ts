@@ -11,7 +11,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { headers } from "next/headers";
 import { getPayload } from "payload";
 
 import config from "@payload-config";
@@ -30,7 +29,7 @@ const SQLITE_HEADER = Buffer.from([
 
 export async function POST(request: Request) {
   const payload = await getPayload({ config });
-  const { user } = await payload.auth({ headers: await headers() });
+  const { user } = await payload.auth({ headers: request.headers });
   if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

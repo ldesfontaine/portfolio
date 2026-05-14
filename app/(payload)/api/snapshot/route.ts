@@ -1,7 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
-import { headers } from "next/headers";
 import { getPayload } from "payload";
 
 import config from "@payload-config";
@@ -10,9 +9,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(request: Request) {
   const payload = await getPayload({ config });
-  const { user } = await payload.auth({ headers: await headers() });
+  const { user } = await payload.auth({ headers: request.headers });
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
   }
