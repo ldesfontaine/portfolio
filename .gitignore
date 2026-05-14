@@ -45,6 +45,7 @@ CLAUDE.md
 
 # payload
 payload.db
+payload.db.bak-*
 payload.db-journal
 /media/*
 !/media/.gitkeep

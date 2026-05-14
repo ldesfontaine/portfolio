@@ -1,47 +1,28 @@
+# Local-only compose for building/testing the image.
+#
+# On your production server, write your own compose: pull the image from GHCR
+# (ghcr.io/ldesfontaine/termfolio:<tag>), wire your Traefik labels / auth /
+# network as you see fit, and mount the same volumes (portfolio-data, portfolio-media).
 services:
   portfolio:
     build:
       context: .
       args:
-        SITE_URL: ${SITE_URL}
+        SITE_URL: ${SITE_URL:-http://localhost:3000}
     image: portfolio:latest
     container_name: portfolio
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     environment:
       NODE_ENV: production
       PAYLOAD_SECRET: ${PAYLOAD_SECRET}
       DATABASE_URI: file:/data/payload.db
-      SITE_URL: ${SITE_URL}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
     volumes:
       - portfolio-data:/data
       - portfolio-media:/app/media
-    networks:
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
-
-      # Public site — everything except /admin and /api.
-      - "traefik.http.routers.portfolio.rule=Host(`${SITE_HOST}`)"
-      - "traefik.http.routers.portfolio.entrypoints=websecure"
-      - "traefik.http.routers.portfolio.tls.certresolver=letsencrypt"
-      - "traefik.http.services.portfolio.loadbalancer.server.port=3000"
-
-      # Admin + API — same backend, but with IP allowlist middleware.
-      # Priority > public router so this match wins for /admin* and /api*.
-      - "traefik.http.routers.portfolio-admin.rule=Host(`${SITE_HOST}`) && (PathPrefix(`/admin`) || PathPrefix(`/api`))"
-      - "traefik.http.routers.portfolio-admin.entrypoints=websecure"
-      - "traefik.http.routers.portfolio-admin.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.portfolio-admin.priority=100"
-      - "traefik.http.routers.portfolio-admin.middlewares=admin-ipallowlist"
-      - "traefik.http.middlewares.admin-ipallowlist.ipallowlist.sourcerange=${ADMIN_ALLOWED_IPS}"
 
 volumes:
   portfolio-data:
   portfolio-media:
-
-networks:
-  traefik:
-    external: true

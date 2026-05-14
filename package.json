@@ -10,8 +10,6 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "generate:types": "payload generate:types",
-    "seed": "payload run scripts/seed.ts",
-    "seed:docker": "docker run --rm -u \"$(id -u):$(id -g)\" -v \"$(pwd):/app\" --env-file .env -w /app node:22-slim sh -c 'npm ci --silent && npx payload run scripts/seed.ts'",
     "generate:types:docker": "docker run --rm -u \"$(id -u):$(id -g)\" -v \"$(pwd):/app\" -w /app node:22-slim sh -c 'npm ci --silent && npx payload generate:types'",
     "generate:importmap": "payload generate:importmap"
   },
