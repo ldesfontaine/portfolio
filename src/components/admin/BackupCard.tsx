@@ -13,7 +13,7 @@ export default function BackupCard() {
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/snapshot");
+      const res = await fetch("/api/snapshot", { credentials: "include" });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
@@ -50,6 +50,7 @@ export default function BackupCard() {
       const res = await fetch("/api/snapshot/restore", {
         method: "POST",
         body: form,
+        credentials: "include",
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
