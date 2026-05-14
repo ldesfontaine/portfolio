@@ -18,6 +18,11 @@ const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
 const siteUrl = process.env.SITE_URL || "http://localhost:3000";
+const extraOrigins = (process.env.EXTRA_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const allowedOrigins = [siteUrl, ...extraOrigins];
 
 export default buildConfig({
   admin: {
@@ -49,6 +54,6 @@ export default buildConfig({
     push: true,
   }),
   sharp,
-  cors: [siteUrl],
-  csrf: [siteUrl],
+  cors: allowedOrigins,
+  csrf: allowedOrigins,
 });
