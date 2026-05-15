@@ -3,6 +3,7 @@
 # On your production server, write your own compose: pull the image from GHCR
 # (ghcr.io/ldesfontaine/termfolio:<tag>), wire your Traefik labels / auth /
 # network as you see fit, and mount the same volumes (portfolio-data, portfolio-media).
+# See README → "Analytics auto-hébergées" for the prod compose snippet.
 services:
   portfolio:
     build:
@@ -19,6 +20,12 @@ services:
       PAYLOAD_SECRET: ${PAYLOAD_SECRET}
       DATABASE_URI: file:/data/payload.db
       SITE_URL: ${SITE_URL:-http://localhost:3000}
+      # GoatCounter bootstrap (only read on first boot, when /data is empty).
+      # Must come from .env (cf. .env.example). Admin email is derived from
+      # the vhost, admin password is auto-generated and persisted to
+      # /data/goatcounter-admin-password (the UI login is rarely needed since
+      # /stats/* is gated by Payload via the Next.js middleware).
+      GOATCOUNTER_VHOST: ${GOATCOUNTER_VHOST}
     volumes:
       - portfolio-data:/data
       - portfolio-media:/app/media

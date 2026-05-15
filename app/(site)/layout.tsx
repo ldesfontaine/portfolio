@@ -55,6 +55,16 @@ export default async function RootLayout({
             __html: `(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t)})()`,
           }}
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.goatcounter={allow_local:true,no_onload:document.cookie.indexOf("payload-token=")!==-1};`,
+          }}
+        />
+        <script
+          data-goatcounter="/stats/count"
+          async
+          src="/stats/count.js"
+        />
       </head>
       <body className="flex min-h-screen flex-col">
         <Nav />

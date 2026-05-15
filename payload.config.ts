@@ -31,7 +31,10 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
     components: {
-      beforeDashboard: ["/src/components/admin/BackupCard"],
+      beforeDashboard: [
+        "/src/components/admin/BackupCard",
+        "/src/components/admin/AnalyticsCard",
+      ],
     },
   },
   i18n: {
