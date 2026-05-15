@@ -6,10 +6,16 @@ set -e
 # For a single-user portfolio we want push (no migration history to maintain),
 # so we run the bootstrap step with NODE_ENV=development. The Next server then
 # starts in production mode against the already-provisioned database.
+#
+# Calling `node_modules/.bin/payload` directly (instead of via `npx`) skips npm's
+# update-notifier ping which can hang/no-op on hosts with restricted egress.
+# HOME and TMPDIR are forced to a writable location for the same reason: the
+# default $HOME=/home/nextjs doesn't exist in this image (no --create-home).
 echo "→ Provisioning Payload DB schema (push)…"
-NODE_ENV=development npx payload run scripts/bootstrap-schema.ts || {
-  echo "⚠ Payload bootstrap failed; continuing so logs can be inspected."
-}
+if ! HOME=/tmp TMPDIR=/tmp NODE_ENV=development /app/node_modules/.bin/payload run scripts/bootstrap-schema.ts; then
+  echo "✗ Payload schema bootstrap FAILED — aborting." >&2
+  exit 1
+fi
 
 # ─── GoatCounter bootstrap + background start ─────────────────────────────────
 GC_DB="${GOATCOUNTER_DB:-/data/goatcounter.sqlite3}"
