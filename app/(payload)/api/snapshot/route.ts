@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     execFileSync("tar", ["-czf", tarFile, "-C", workDir, "."]);
 
     const buffer = readFileSync(tarFile);
-    const filename = `termfolio-snapshot-${ts}.tar.gz`;
+    const filename = `portfolio-snapshot-${ts}.tar.gz`;
 
     return new Response(new Uint8Array(buffer), {
       headers: {

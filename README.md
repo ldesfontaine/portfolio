@@ -53,7 +53,7 @@ Pré-requis : Node 22 LTS recommandé (Node 20.19 fonctionne pour Next + Payload
 
 ```bash
 git clone <repo>
-cd termfolio
+cd portfolio
 npm install
 
 # Générer un secret fort
@@ -206,7 +206,7 @@ GoatCounter agrège les hits par `path`, pas par hostname. Pour éviter que deux
 ```yaml
 services:
   portfolio:
-    image: ghcr.io/ldesfontaine/termfolio:0.0.4
+    image: ghcr.io/ldesfontaine/portfolio:0.0.1
     container_name: portfolio
     restart: unless-stopped
     read_only: true

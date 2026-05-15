@@ -23,7 +23,7 @@ export default function BackupCard() {
       const link = document.createElement("a");
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       link.href = url;
-      link.download = `termfolio-snapshot-${ts}.tar.gz`;
+      link.download = `portfolio-snapshot-${ts}.tar.gz`;
       link.click();
       URL.revokeObjectURL(url);
       setMessage({ kind: "info", text: "Snapshot téléchargé." });
