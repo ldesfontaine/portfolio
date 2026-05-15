@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
+import TrackPageView from "@/components/TrackPageView";
 import { getSiteMeta } from "@/lib/content";
 import "./globals.css";
 
@@ -49,9 +50,10 @@ export default async function RootLayout({
     getSiteMeta(),
     cookies(),
   ]);
-  // Self-exclusion: Payload's session cookie is HttpOnly, so client JS can't
-  // read it. Check it server-side and bake the `no_onload` flag into the
-  // tracker config — when the admin is logged in, count.js skips the auto hit.
+  // Self-exclusion: Payload's session cookie is HttpOnly so client JS can't
+  // see it. We check it server-side and skip injecting the GoatCounter scripts
+  // entirely when the admin is logged in — no tracker loaded, no risk of
+  // counting our own navigations.
   const adminLoggedIn = cookieStore.has("payload-token");
   return (
     <html lang="fr" className={`${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
@@ -61,21 +63,26 @@ export default async function RootLayout({
             __html: `(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t)})()`,
           }}
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.goatcounter={allow_local:true,no_onload:${adminLoggedIn}};`,
-          }}
-        />
-        <script
-          data-goatcounter="/stats/count"
-          async
-          src="/stats/count.js"
-        />
+        {!adminLoggedIn ? (
+          <>
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `window.goatcounter={allow_local:true};`,
+              }}
+            />
+            <script
+              data-goatcounter="/stats/count"
+              async
+              src="/stats/count.js"
+            />
+          </>
+        ) : null}
       </head>
       <body className="flex min-h-screen flex-col">
         <Nav />
         <main className="flex-1 py-12">{children}</main>
         <Footer siteMeta={siteMeta} />
+        {!adminLoggedIn ? <TrackPageView /> : null}
       </body>
     </html>
   );
