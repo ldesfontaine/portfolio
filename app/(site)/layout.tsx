@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import { getSiteMeta } from "@/lib/content";
 import "./globals.css";
-
-export const revalidate = 3600;
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -46,7 +45,14 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const siteMeta = await getSiteMeta();
+  const [siteMeta, cookieStore] = await Promise.all([
+    getSiteMeta(),
+    cookies(),
+  ]);
+  // Self-exclusion: Payload's session cookie is HttpOnly, so client JS can't
+  // read it. Check it server-side and bake the `no_onload` flag into the
+  // tracker config — when the admin is logged in, count.js skips the auto hit.
+  const adminLoggedIn = cookieStore.has("payload-token");
   return (
     <html lang="fr" className={`${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
@@ -57,7 +63,7 @@ export default async function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.goatcounter={allow_local:true,no_onload:document.cookie.indexOf("payload-token=")!==-1};`,
+            __html: `window.goatcounter={allow_local:true,no_onload:${adminLoggedIn}};`,
           }}
         />
         <script

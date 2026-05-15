@@ -25,18 +25,20 @@ export async function middleware(req: NextRequest) {
   const meUrl = new URL("/api/users/me", internalBase);
   const cookie = req.headers.get("cookie") ?? "";
 
+  // Payload's cookie auth runs a CSRF check that requires either a matching
+  // Origin (from `csrf` allowlist) OR Sec-Fetch-Site=same-origin. We forge the
+  // Origin from SITE_URL — req.nextUrl.origin lies behind Traefik (scheme is
+  // HTTP between Traefik and Next, but the canonical origin is HTTPS), so
+  // using it directly fails the CSRF match in prod.
+  const csrfOrigin = process.env.SITE_URL || req.nextUrl.origin;
+
   let authorized = false;
   try {
     const res = await fetch(meUrl, {
       headers: {
         cookie,
         accept: "application/json",
-        // Payload's cookie auth path runs a CSRF check: it requires either a
-        // matching Origin header OR a Sec-Fetch-Site=same-origin signal. The
-        // server-to-server fetch from middleware has neither by default, so
-        // we forge the Origin from the inbound request — same-origin by
-        // construction since we trust our own request URL.
-        origin: req.nextUrl.origin,
+        origin: csrfOrigin,
       },
       cache: "no-store",
       redirect: "manual",
