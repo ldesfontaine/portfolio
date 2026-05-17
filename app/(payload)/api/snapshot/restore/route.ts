@@ -113,6 +113,31 @@ export async function POST(request: Request) {
     }
     renameSync(dbStaged, dbPath);
 
+    // GoatCounter DB — optional in the tarball to stay compatible with
+    // snapshots taken before analytics were bundled. GoatCounter holds the
+    // SQLite open; the swap is safe because the container exits below and
+    // reopens the new file on restart.
+    const newGcDb = path.join(extractDir, "goatcounter.sqlite3");
+    let gcBackup: string | null = null;
+    if (existsSync(newGcDb)) {
+      const gcHeader = readFileSync(newGcDb).subarray(0, 16);
+      if (!gcHeader.equals(SQLITE_HEADER)) {
+        return Response.json(
+          { error: "goatcounter.sqlite3 is not a valid SQLite file" },
+          { status: 400 },
+        );
+      }
+      const gcPath =
+        process.env.GOATCOUNTER_DB || "/data/goatcounter.sqlite3";
+      const gcStaged = `${gcPath}.new-${ts}`;
+      gcBackup = `${gcPath}.pre-restore-${ts}`;
+      copyFileSync(newGcDb, gcStaged);
+      if (existsSync(gcPath)) {
+        renameSync(gcPath, gcBackup);
+      }
+      renameSync(gcStaged, gcPath);
+    }
+
     const newMedia = path.join(extractDir, "media");
     if (existsSync(newMedia)) {
       // The `nextjs` user owns /app/media but not /app itself, so we can't
@@ -153,7 +178,7 @@ export async function POST(request: Request) {
       ok: true,
       message:
         "Snapshot restauré. Le container redémarre. Recharge la page d'ici 10-15s.",
-      backup: { db: dbBackup, media: mediaBackup },
+      backup: { db: dbBackup, media: mediaBackup, goatcounter: gcBackup },
     });
   } catch (err) {
     return Response.json(

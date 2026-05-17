@@ -1,5 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import path from "node:path";
 import { getPayload } from "payload";
 
@@ -35,6 +41,22 @@ export async function GET(request: Request) {
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
       copyFileSync(dbPath, `${workDir}/payload.db`);
+    }
+
+    // GoatCounter DB lives in the same volume; include it if present so a
+    // single snapshot covers content + analytics. Optional — skipped on
+    // installs where analytics never booted.
+    const gcDb = process.env.GOATCOUNTER_DB || "/data/goatcounter.sqlite3";
+    if (existsSync(gcDb)) {
+      try {
+        execFileSync("sqlite3", [
+          gcDb,
+          `.backup '${workDir}/goatcounter.sqlite3'`,
+        ]);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+        copyFileSync(gcDb, `${workDir}/goatcounter.sqlite3`);
+      }
     }
 
     // Copy media tree (best-effort: dir may not exist on a fresh install).
