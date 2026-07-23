@@ -1,132 +1,53 @@
 import Link from "next/link";
-import { getSiteMeta, getTimeline } from "@/lib/content";
-import { getProjects } from "@/lib/projects";
-import StatusBadge from "@/components/StatusBadge";
-import ProjectCard from "@/components/ProjectCard";
-import Timeline from "@/components/Timeline";
+
+import HeroFocus from "@/components/HeroFocus";
+import HomeNoteCard from "@/components/HomeNoteCard";
+import { getSiteMeta } from "@/lib/content";
+import { getEditorialEntries } from "@/lib/posts";
 
 export const dynamic = "force-dynamic";
-
 export const revalidate = 3600;
 
 export default async function Home() {
-  const [siteMeta, timeline, projects] = await Promise.all([
+  const [siteMeta, notes] = await Promise.all([
     getSiteMeta(),
-    getTimeline(),
-    getProjects(),
+    getEditorialEntries(),
   ]);
 
   return (
-    <>
-      {/* Hero */}
-      <div className="mx-auto max-w-[680px] px-5">
-        <section className="flex flex-col gap-5">
-          <div><StatusBadge text={siteMeta.availability} /></div>
-          <h1 className="text-[28px] font-medium sm:text-[42px]">
-            <span style={{ color: "var(--n900)" }}>Lucas</span>{" "}
-            <span style={{ color: "var(--accent)" }}>Desfontaine</span>
-          </h1>
-          <p
-            className="font-mono text-sm"
-            style={{ color: "var(--n500)" }}
-          >
-            {siteMeta.title}
-          </p>
-          <p
-            className="max-w-[520px] text-base"
-            style={{ color: "var(--n500)" }}
-          >
-            {siteMeta.description}
-          </p>
-          <div className="flex items-center gap-3">
-            <Link href="/projets" className="btn-primary group">
-              Voir mes projets
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="btn-arrow"
-              >
-                <path d="M6 3l5 5-5 5" />
-              </svg>
-            </Link>
-            {siteMeta.cvUrl ? (
-              <a href={siteMeta.cvUrl} className="btn-ghost">
-                CV
-              </a>
-            ) : null}
-          </div>
-        </section>
-      </div>
+    <div className="explore-page">
+      <section className="home-hero site-container">
+        <div className="home-hero-copy">
+          <p className="eyebrow">{siteMeta.hero.eyebrow}</p>
+          <h1>{siteMeta.hero.title}</h1>
+          <p className="home-hero-description">{siteMeta.hero.description}</p>
+        </div>
+        <HeroFocus />
+      </section>
 
-      {/* Projects + Timeline — 2 colonnes en lg */}
-      <div className="mx-auto mt-16 max-w-[1200px] px-5">
-        <div className="grid grid-cols-1 gap-16 lg:grid-cols-[3fr_2fr]">
-          {/* Projects */}
-          <section className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <span
-                className="font-mono text-[13px] uppercase"
-                style={{ color: "var(--accent)" }}
-              >
-                // projets
-              </span>
-              <Link
-                href="/projets"
-                className="font-mono text-xs transition-colors duration-200 hover:!text-[var(--accent)]"
-                style={{ color: "var(--n400)" }}
-              >
-                tout voir →
-              </Link>
-            </div>
-            <div
-              className="overflow-hidden"
-              style={{
-                background: "var(--n100)",
-                borderRadius: "10px",
-                border: "0.5px solid var(--n100)",
-              }}
-            >
-              {projects.map((project, i) => (
-                <div
-                  key={project.slug}
-                  style={{
-                    borderTop: i > 0 ? "1px solid var(--n100)" : undefined,
-                  }}
-                >
-                  <ProjectCard
-                    project={project}
-                    href={`/projets/${project.slug}`}
-                  />
-                </div>
+      <section
+        className="home-notes reading-page"
+        aria-labelledby="home-notes-title"
+      >
+        <div className="home-notes-inner site-container">
+          <div className="section-heading-row">
+            <h2 id="home-notes-title">Notes</h2>
+            <span className="section-rule" />
+            <Link href="/notes">
+              Toutes les Notes <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+          {notes.length > 0 ? (
+            <div className="home-notes-grid">
+              {notes.slice(0, 3).map((note) => (
+                <HomeNoteCard key={note.slug} note={note} />
               ))}
             </div>
-          </section>
-
-          {/* Timeline */}
-          <section className="flex flex-col gap-4">
-            <span
-              className="font-mono text-[13px] uppercase"
-              style={{ color: "var(--accent)" }}
-            >
-              // parcours
-            </span>
-            <Timeline items={timeline.slice(0, 4)} />
-            <Link
-              href="/parcours"
-              className="font-mono text-xs transition-colors duration-200 hover:!text-[var(--accent)]"
-              style={{ color: "var(--n400)" }}
-            >
-              voir tout le parcours →
-            </Link>
-          </section>
+          ) : (
+            <p className="empty-state">Les premières Notes apparaîtront ici.</p>
+          )}
         </div>
-      </div>
-    </>
+      </section>
+    </div>
   );
 }

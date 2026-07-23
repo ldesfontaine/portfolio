@@ -1,14 +1,27 @@
-export interface ProjectMeta {
+export interface ThemeLink {
   slug: string;
   title: string;
-  category: string;
-  description: string;
-  stack: string[];
-  github?: string;
-  period: string;
-  type: string;
-  badge?: string;
-  order: number;
+}
+
+export interface MediaAsset {
+  url: string;
+  alt: string;
+  width: number;
+  height: number;
+}
+
+export interface EditorialEntry {
+  slug: string;
+  href: string;
+  source: "note";
+  label: string;
+  title: string;
+  excerpt: string;
+  publishedAt: string;
+  readingTime: number;
+  tags: string[];
+  relatedThemes: ThemeLink[];
+  cover?: MediaAsset;
 }
 
 export interface TimelineItem {
@@ -27,12 +40,13 @@ export interface Certification {
 
 export interface SiteMeta {
   name: string;
-  title: string;
-  description: string;
   email: string;
   github: string;
   linkedin: string;
-  location: string;
-  availability: string;
   cvUrl: string | null;
+  hero: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
 }

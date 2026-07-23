@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import {
   RichText,
   type JSXConvertersFunction,
@@ -13,18 +12,17 @@ import {
   type SerializedEditorState,
 } from "@payloadcms/richtext-lexical/lexical";
 
-import type { About, Media, Project } from "@/payload-types";
-import type { ProjectMeta } from "@/lib/types";
+import type { About, Media, Post, Project } from "@/payload-types";
 import CodeBlockComponent from "./CodeBlock";
 import HighlightComponent from "./Highlight";
 import ArchitectureDiagramComponent from "./ArchitectureDiagram";
-import ProjectNavComponent from "./ProjectNav";
+import EditorialTable from "./EditorialTable";
 
 type ContentBlock =
   | NonNullable<Project["content"]>[number]
+  | NonNullable<Post["content"]>[number]
   | NonNullable<About["content"]>[number];
 
-type ProjectContext = ProjectMeta;
 type StructuralBlock =
   | { blockType: "project-header"; showBackLink?: boolean | null; id?: string | null }
   | { blockType: "project-meta"; id?: string | null }
@@ -126,145 +124,28 @@ export const hasStructuralBlocks = (blocks: RenderBlock[] | null | undefined) =>
 
 export default function BlockRenderer({
   blocks,
-  project,
-  prev,
-  next,
 }: {
   blocks: RenderBlock[];
-  project?: ProjectContext;
-  prev?: ProjectMeta;
-  next?: ProjectMeta;
 }) {
   return (
     <>
       {blocks.map((block, i) => {
         const key = ("id" in block ? block.id : undefined) ?? `${block.blockType}-${i}`;
         switch (block.blockType) {
-          case "project-header": {
-            if (!project) return null;
-            const showBackLink = block.showBackLink !== false;
-            return (
-              <header key={key} className="flex flex-col">
-                {showBackLink && (
-                  <Link
-                    href="/projets"
-                    className="mb-8 inline-flex items-center gap-1 font-mono text-xs transition-colors duration-200"
-                    style={{ color: "var(--n400)" }}
-                  >
-                    ← retour aux projets
-                  </Link>
-                )}
-                <span
-                  className="font-mono text-xs uppercase"
-                  style={{ color: "var(--accent)" }}
-                >
-                  {project.category}
-                </span>
-                <h1
-                  className="mt-2 text-[34px] font-medium"
-                  style={{ color: "var(--n900)" }}
-                >
-                  {project.title}
-                </h1>
-                <p
-                  className="mt-2 max-w-[560px] text-[17px]"
-                  style={{ color: "var(--n500)" }}
-                >
-                  {project.description}
-                </p>
-              </header>
-            );
-          }
-          case "project-meta": {
-            if (!project) return null;
-            const stack = project.stack ?? [];
-            const metaItems: {
-              label: string;
-              value: string;
-              isLink?: boolean;
-            }[] = [
-              { label: "Type", value: project.type },
-              { label: "Période", value: project.period },
-              { label: "Stack", value: stack.join(", ") },
-              ...(project.github
-                ? [{ label: "GitHub", value: project.github, isLink: true }]
-                : []),
-            ];
-            return (
-              <div
-                key={key}
-                className="my-8 grid grid-cols-2 gap-x-6 gap-y-4 py-4 sm:grid-cols-[auto_auto_1fr_auto]"
-                style={{
-                  borderTop: "0.5px solid var(--n100)",
-                  borderBottom: "0.5px solid var(--n100)",
-                }}
-              >
-                {metaItems.map((m) => (
-                  <div key={m.label} className="flex flex-col gap-1">
-                    <span
-                      className="font-mono text-[10.5px] uppercase"
-                      style={{ color: "var(--n300)" }}
-                    >
-                      {m.label}
-                    </span>
-                    {m.isLink ? (
-                      <a
-                        href={m.value}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[13.5px] font-medium transition-colors duration-200"
-                        style={{ color: "var(--accent)" }}
-                      >
-                        Voir le repo
-                      </a>
-                    ) : (
-                      <span
-                        className="text-[13.5px] font-medium"
-                        style={{ color: "var(--n700)" }}
-                      >
-                        {m.value}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            );
-          }
-          case "project-tags": {
-            if (!project) return null;
-            const stack = project.stack ?? [];
-            return (
-              <div key={key} className="mt-10 flex flex-wrap gap-1.5">
-                {stack.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded px-2 py-0.5 font-mono text-[11px]"
-                    style={{
-                      color: "var(--n500)",
-                      background: "var(--n50)",
-                      border: "0.5px solid var(--n100)",
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            );
-          }
+          case "project-header":
+          case "project-meta":
+          case "project-tags":
           case "project-nav":
-            return (
-              <div key={key} className="mt-8">
-                <ProjectNavComponent prev={prev} next={next} />
-              </div>
-            );
+            // These blocks only exist in the preserved pre-migration archive.
+            // Notes carry their own title and metadata outside the block stream.
+            return null;
           case "section-heading":
             return (
               <h2
                 key={key}
-                className="mb-3 mt-10 font-mono text-[13px] uppercase"
-                style={{ color: "var(--accent)" }}
+                className="editorial-section-heading"
               >
-                // {block.text}
+                {block.text}
               </h2>
             );
           case "paragraph":
@@ -299,15 +180,33 @@ export default function BlockRenderer({
               </HighlightComponent>
             );
           case "architecture-diagram":
+            const diagramData = block.nodes?.length
+              ? {
+                  nodes: block.nodes.map((node) => ({
+                    id: node.key,
+                    label: node.label,
+                    detail: node.detail,
+                    tone: node.tone,
+                  })),
+                  links: block.links ?? [],
+                }
+              : block.data;
             return (
-              <ArchitectureDiagramComponent key={key}>
-                <pre
-                  className="font-mono text-xs"
-                  style={{ color: "var(--n500)" }}
-                >
-                  {JSON.stringify(block.data, null, 2)}
-                </pre>
-              </ArchitectureDiagramComponent>
+              <ArchitectureDiagramComponent
+                key={key}
+                title={block.title}
+                data={diagramData}
+                caption={block.caption}
+              />
+            );
+          case "table":
+            return (
+              <EditorialTable
+                key={key}
+                caption={block.caption}
+                columns={block.columns}
+                rows={block.rows}
+              />
             );
           case "image": {
             const image = block.image as Media | number | undefined;

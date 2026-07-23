@@ -13,7 +13,7 @@ export const SectionHeading: Block = {
       type: "text",
       required: true,
       admin: {
-        description: "Rendu en mono uppercase préfixé `//` dans la couleur d'accent.",
+        description: "Titre éditorial sobre, sans préfixe décoratif.",
       },
     },
   ],

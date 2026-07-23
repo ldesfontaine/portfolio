@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     media: Media;
     projects: Project;
+    posts: Post;
     'timeline-items': TimelineItem;
     certifications: Certification;
     'payload-kv': PayloadKv;
@@ -82,6 +83,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     projects: ProjectsSelect<false> | ProjectsSelect<true>;
+    posts: PostsSelect<false> | PostsSelect<true>;
     'timeline-items': TimelineItemsSelect<false> | TimelineItemsSelect<true>;
     certifications: CertificationsSelect<false> | CertificationsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -155,7 +157,7 @@ export interface User {
   collection: 'users';
 }
 /**
- * Bibliothèque centrale de tous les fichiers uploadés (images des projets, photo, CV PDF). Tout fichier ajouté ici devient sélectionnable depuis les champs « upload » des autres collections (En-tête de projet, image dans un write-up, photo de l'À propos, CV des métadonnées, etc.). La liste est vide tant que tu n'as rien uploadé.
+ * Images des Notes, photo de profil et CV PDF. Un fichier ajouté ici devient sélectionnable depuis les champs média du site.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
@@ -205,6 +207,8 @@ export interface Media {
   };
 }
 /**
+ * Un thème sert uniquement à filtrer et regrouper des Notes. Il ne possède pas de page publique ni de contenu propre.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "projects".
  */
@@ -212,46 +216,35 @@ export interface Project {
   id: number;
   title: string;
   /**
-   * Auto-généré depuis le titre si laissé vide (kebab-case sans accents).
+   * Auto-généré depuis le nom si laissé vide.
    */
   slug?: string | null;
-  /**
-   * Ex : « monitoring · devsecops ».
-   */
-  category: string;
-  /**
-   * Résumé court (240 caractères max) affiché sur les cartes.
-   */
-  description: string;
-  /**
-   * Badges techno affichés sur la fiche projet.
-   */
-  stack: {
-    value: string;
-    id?: string | null;
-  }[];
-  /**
-   * URL complète (https://...) — optionnel.
-   */
-  github?: string | null;
-  /**
-   * Ex : « 2024 - en cours ».
-   */
-  period: string;
-  /**
-   * Ex : « Projet personnel », « Mission », etc.
-   */
-  type: string;
-  /**
-   * Étiquette optionnelle (« en cours », « archivé », ...).
-   */
-  badge?: string | null;
   /**
    * Plus petit = affiché en premier.
    */
   order: number;
+  shortTitle?: string | null;
+  category: string;
+  kind: 'living-system' | 'product' | 'case-study' | 'experiment';
+  cardVisual: 'auto' | 'homelab' | 'crisis' | 'phantom' | 'system';
+  cover?: (number | null) | Media;
+  description: string;
+  stack: {
+    value: string;
+    id?: string | null;
+  }[];
+  github?: string | null;
+  period: string;
+  type: string;
+  badge?: string | null;
+  featured?: boolean | null;
+  listedInNotes?: boolean | null;
+  publishedAt?: string | null;
+  readingTime?: number | null;
+  parentProject?: (number | null) | Project;
+  relatedProjects?: (number | Project)[] | null;
   /**
-   * Assemble la page bloc par bloc. Si tu n'ajoutes aucun bloc structurel (en-tête, méta, tags, nav), un layout par défaut est appliqué automatiquement.
+   * Archive conservée pour rollback après migration du contenu vers Notes.
    */
   content?:
     | (
@@ -268,7 +261,7 @@ export interface Project {
           }
         | {
             /**
-             * Rendu en mono uppercase préfixé `//` dans la couleur d'accent.
+             * Titre éditorial sobre, sans préfixe décoratif.
              */
             text: string;
             id?: string | null;
@@ -336,10 +329,50 @@ export interface Project {
             blockType: 'highlight';
           }
         | {
+            caption?: string | null;
+            columns: {
+              label: string;
+              align: 'left' | 'center' | 'right';
+              id?: string | null;
+            }[];
+            rows: {
+              cells: {
+                value: string;
+                tone: 'default' | 'positive' | 'warning';
+                id?: string | null;
+              }[];
+              id?: string | null;
+            }[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'table';
+          }
+        | {
+            title?: string | null;
+            nodes?:
+              | {
+                  /**
+                   * Ex : vps, homelab, observabilite.
+                   */
+                  key: string;
+                  label: string;
+                  detail?: string | null;
+                  tone?: ('default' | 'mauve' | 'orange') | null;
+                  id?: string | null;
+                }[]
+              | null;
+            links?:
+              | {
+                  from: string;
+                  to: string;
+                  label?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
             /**
-             * Payload JSON consommé par le composant ArchitectureDiagram (noeuds, liens, légende).
+             * Compatibilité avec les schémas créés avant les champs structurés.
              */
-            data:
+            data?:
               | {
                   [k: string]: unknown;
                 }
@@ -348,6 +381,7 @@ export interface Project {
               | number
               | boolean
               | null;
+            caption?: string | null;
             id?: string | null;
             blockName?: string | null;
             blockType: 'architecture-diagram';
@@ -374,6 +408,179 @@ export interface Project {
           }
       )[]
     | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Tout le contenu public se publie ici. Une Note est indépendante par défaut ; un thème sert seulement à regrouper plusieurs Notes.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
+  id: number;
+  title: string;
+  /**
+   * Auto-généré depuis le titre si laissé vide.
+   */
+  slug?: string | null;
+  excerpt: string;
+  publishedAt: string;
+  readingTime: number;
+  cover?: (number | null) | Media;
+  tags?:
+    | {
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Facultatif : laisse vide pour une Note indépendante. Un thème comme Homelab sert uniquement de filtre et de regroupement.
+   */
+  relatedProjects?: (number | Project)[] | null;
+  /**
+   * Blocs bornés et réutilisables. Le code reste du texte brut ; tableaux et schémas sont validés avant enregistrement.
+   */
+  content: (
+    | {
+        /**
+         * Titre éditorial sobre, sans préfixe décoratif.
+         */
+        text: string;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'section-heading';
+      }
+    | {
+        /**
+         * Texte courant. Le gras (`<strong>`) est rendu en accent neutre fort.
+         */
+        text: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        };
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'paragraph';
+      }
+    | {
+        language: 'bash' | 'ts' | 'tsx' | 'go' | 'yaml' | 'dockerfile' | 'sh' | 'json' | 'python';
+        /**
+         * Optionnel — affiché en en-tête du bloc.
+         */
+        filename?: string | null;
+        /**
+         * Contenu brut — pas d'interprétation Markdown.
+         */
+        code: string;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'code-block';
+      }
+    | {
+        /**
+         * Bloc d'emphase rendu avec le composant Highlight (bordure colorée).
+         */
+        content: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        };
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'highlight';
+      }
+    | {
+        caption?: string | null;
+        columns: {
+          label: string;
+          align: 'left' | 'center' | 'right';
+          id?: string | null;
+        }[];
+        rows: {
+          cells: {
+            value: string;
+            tone: 'default' | 'positive' | 'warning';
+            id?: string | null;
+          }[];
+          id?: string | null;
+        }[];
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'table';
+      }
+    | {
+        title?: string | null;
+        nodes?:
+          | {
+              /**
+               * Ex : vps, homelab, observabilite.
+               */
+              key: string;
+              label: string;
+              detail?: string | null;
+              tone?: ('default' | 'mauve' | 'orange') | null;
+              id?: string | null;
+            }[]
+          | null;
+        links?:
+          | {
+              from: string;
+              to: string;
+              label?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * Compatibilité avec les schémas créés avant les champs structurés.
+         */
+        data?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
+        caption?: string | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'architecture-diagram';
+      }
+    | {
+        image: number | Media;
+        /**
+         * Optionnelle — affichée sous l'image en mono petite taille.
+         */
+        caption?: string | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'image';
+      }
+  )[];
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -450,6 +657,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'projects';
         value: number | Project;
+      } | null)
+    | ({
+        relationTo: 'posts';
+        value: number | Post;
       } | null)
     | ({
         relationTo: 'timeline-items';
@@ -582,7 +793,12 @@ export interface MediaSelect<T extends boolean = true> {
 export interface ProjectsSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
+  order?: T;
+  shortTitle?: T;
   category?: T;
+  kind?: T;
+  cardVisual?: T;
+  cover?: T;
   description?: T;
   stack?:
     | T
@@ -594,7 +810,12 @@ export interface ProjectsSelect<T extends boolean = true> {
   period?: T;
   type?: T;
   badge?: T;
-  order?: T;
+  featured?: T;
+  listedInNotes?: T;
+  publishedAt?: T;
+  readingTime?: T;
+  parentProject?: T;
+  relatedProjects?: T;
   content?:
     | T
     | {
@@ -641,10 +862,55 @@ export interface ProjectsSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        table?:
+          | T
+          | {
+              caption?: T;
+              columns?:
+                | T
+                | {
+                    label?: T;
+                    align?: T;
+                    id?: T;
+                  };
+              rows?:
+                | T
+                | {
+                    cells?:
+                      | T
+                      | {
+                          value?: T;
+                          tone?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
         'architecture-diagram'?:
           | T
           | {
+              title?: T;
+              nodes?:
+                | T
+                | {
+                    key?: T;
+                    label?: T;
+                    detail?: T;
+                    tone?: T;
+                    id?: T;
+                  };
+              links?:
+                | T
+                | {
+                    from?: T;
+                    to?: T;
+                    label?: T;
+                    id?: T;
+                  };
               data?: T;
+              caption?: T;
               id?: T;
               blockName?: T;
             };
@@ -665,6 +931,122 @@ export interface ProjectsSelect<T extends boolean = true> {
         'project-nav'?:
           | T
           | {
+              id?: T;
+              blockName?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts_select".
+ */
+export interface PostsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  excerpt?: T;
+  publishedAt?: T;
+  readingTime?: T;
+  cover?: T;
+  tags?:
+    | T
+    | {
+        value?: T;
+        id?: T;
+      };
+  relatedProjects?: T;
+  content?:
+    | T
+    | {
+        'section-heading'?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+              blockName?: T;
+            };
+        paragraph?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+              blockName?: T;
+            };
+        'code-block'?:
+          | T
+          | {
+              language?: T;
+              filename?: T;
+              code?: T;
+              id?: T;
+              blockName?: T;
+            };
+        highlight?:
+          | T
+          | {
+              content?: T;
+              id?: T;
+              blockName?: T;
+            };
+        table?:
+          | T
+          | {
+              caption?: T;
+              columns?:
+                | T
+                | {
+                    label?: T;
+                    align?: T;
+                    id?: T;
+                  };
+              rows?:
+                | T
+                | {
+                    cells?:
+                      | T
+                      | {
+                          value?: T;
+                          tone?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        'architecture-diagram'?:
+          | T
+          | {
+              title?: T;
+              nodes?:
+                | T
+                | {
+                    key?: T;
+                    label?: T;
+                    detail?: T;
+                    tone?: T;
+                    id?: T;
+                  };
+              links?:
+                | T
+                | {
+                    from?: T;
+                    to?: T;
+                    label?: T;
+                    id?: T;
+                  };
+              data?: T;
+              caption?: T;
+              id?: T;
+              blockName?: T;
+            };
+        image?:
+          | T
+          | {
+              image?: T;
+              caption?: T;
               id?: T;
               blockName?: T;
             };
@@ -740,14 +1122,15 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   createdAt?: T;
 }
 /**
+ * Nom, manifeste de l'accueil, liens de contact et CV public.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "site-meta".
  */
 export interface SiteMeta {
   id: number;
+  contentRevision?: number | null;
   name?: string | null;
-  title?: string | null;
-  description?: string | null;
   email?: string | null;
   /**
    * URL complète du profil.
@@ -757,8 +1140,11 @@ export interface SiteMeta {
    * URL complète du profil.
    */
   linkedin?: string | null;
-  location?: string | null;
-  availability?: string | null;
+  hero?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    description?: string | null;
+  };
   /**
    * Optionnel — si vide, le bouton CV n'est pas affiché sur le site.
    */
@@ -767,23 +1153,41 @@ export interface SiteMeta {
   createdAt?: string | null;
 }
 /**
+ * Présentation durable, localisation publique et récit affiché avant le parcours.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "about".
  */
 export interface About {
   id: number;
   /**
-   * Optionnelle — si vide, la photo n'est pas affichée sur le site.
+   * Optionnelle et remplaçable. Un monogramme est affiché si elle est absente.
    */
   photo?: (number | null) | Media;
+  /**
+   * Présentation durable : expertise, façon de travailler et sujets construits.
+   */
+  intro?: string | null;
+  specialties?:
+    | {
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
   quickInfo?: {
+    /**
+     * Reste volontairement approximatif et modifiable.
+     */
     location?: string | null;
-    rhythm?: string | null;
+    /**
+     * Optionnel. Ne renseigne ni adresse précise ni déplacement incertain.
+     */
+    mobility?: string | null;
     english?: string | null;
   };
   sectionTitle?: string | null;
   /**
-   * Ajoute, retire, réordonne librement des paragraphes et des encarts.
+   * Ajoute, retire et réordonne les paragraphes. Cette zone n'est pas le CV.
    */
   content?:
     | (
@@ -843,14 +1247,18 @@ export interface About {
  * via the `definition` "site-meta_select".
  */
 export interface SiteMetaSelect<T extends boolean = true> {
+  contentRevision?: T;
   name?: T;
-  title?: T;
-  description?: T;
   email?: T;
   github?: T;
   linkedin?: T;
-  location?: T;
-  availability?: T;
+  hero?:
+    | T
+    | {
+        eyebrow?: T;
+        title?: T;
+        description?: T;
+      };
   cv?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -862,11 +1270,18 @@ export interface SiteMetaSelect<T extends boolean = true> {
  */
 export interface AboutSelect<T extends boolean = true> {
   photo?: T;
+  intro?: T;
+  specialties?:
+    | T
+    | {
+        value?: T;
+        id?: T;
+      };
   quickInfo?:
     | T
     | {
         location?: T;
-        rhythm?: T;
+        mobility?: T;
         english?: T;
       };
   sectionTitle?: T;

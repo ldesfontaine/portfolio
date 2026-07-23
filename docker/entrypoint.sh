@@ -2,17 +2,16 @@
 set -e
 
 # ─── Payload schema push ──────────────────────────────────────────────────────
-# Payload's SQLite adapter only auto-pushes the schema when NODE_ENV != production.
-# For a single-user portfolio we want push (no migration history to maintain),
-# so we run the bootstrap step with NODE_ENV=development. The Next server then
-# starts in production mode against the already-provisioned database.
+# The bootstrap inspects Drizzle's plan itself. It accepts only the legacy
+# columns retired by the redesign, creates a consistent SQLite backup before
+# deleting them, and fails closed on every other destructive warning.
 #
 # Calling `node_modules/.bin/payload` directly (instead of via `npx`) skips npm's
 # update-notifier ping which can hang/no-op on hosts with restricted egress.
 # HOME and TMPDIR are forced to a writable location for the same reason: the
 # default $HOME=/home/nextjs doesn't exist in this image (no --create-home).
 echo "→ Provisioning Payload DB schema (push)…"
-if ! HOME=/tmp TMPDIR=/tmp NODE_ENV=development /app/node_modules/.bin/payload run scripts/bootstrap-schema.ts; then
+if ! HOME=/tmp TMPDIR=/tmp NODE_ENV=production /app/node_modules/.bin/payload run scripts/bootstrap-schema.ts; then
   echo "✗ Payload schema bootstrap FAILED — aborting." >&2
   exit 1
 fi
@@ -33,7 +32,7 @@ esac
 
 if [ ! -f "${GC_DB}" ]; then
   # GoatCounter requires a site owner. We never log in via the UI (auth is
-  # delegated to Payload via the Next.js middleware, and the site is set
+  # delegated to Payload via the Next.js proxy, and the site is set
   # `public` below), so the credentials are derived rather than user-supplied.
   GC_ADMIN_EMAIL="admin@${GC_VHOST}"
   GC_ADMIN_PASS_FILE="/data/goatcounter-admin-password"
@@ -58,7 +57,7 @@ if [ ! -f "${GC_DB}" ]; then
   chmod 0600 "${GC_ADMIN_PASS_FILE}"
 
   # Mark the site as public so the dashboard is reachable without GoatCounter's
-  # own login. Auth is enforced upstream by the Next.js middleware against the
+  # own login. Auth is enforced upstream by the Next.js proxy against the
   # Payload session.
   sqlite3 "${GC_DB}" \
     "UPDATE sites SET settings = json_set(settings, '\$.public', 'public') WHERE site_id = 1;"

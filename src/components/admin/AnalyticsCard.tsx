@@ -218,10 +218,9 @@ export default async function AnalyticsCard() {
             margin: 0,
           }}
         >
-          GoatCounter n&apos;est pas joignable ou pas encore provisionné. Vérifie
-          le container et les variables{" "}
-          <code>GOATCOUNTER_ADMIN_EMAIL</code> /{" "}
-          <code>GOATCOUNTER_ADMIN_PASS</code>.
+          GoatCounter n&apos;est pas joignable ou pas encore provisionné.
+          Vérifie le processus GoatCounter et le jeton en lecture seule dans{" "}
+          <code>/data/goatcounter-api-token</code>.
         </p>
       )}
     </div>

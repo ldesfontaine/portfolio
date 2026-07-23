@@ -13,9 +13,9 @@ export const Media: CollectionConfig = {
   },
   admin: {
     useAsTitle: "filename",
-    group: "Contenu",
+    group: "Médiathèque",
     description:
-      "Bibliothèque centrale de tous les fichiers uploadés (images des projets, photo, CV PDF). Tout fichier ajouté ici devient sélectionnable depuis les champs « upload » des autres collections (En-tête de projet, image dans un write-up, photo de l'À propos, CV des métadonnées, etc.). La liste est vide tant que tu n'as rien uploadé.",
+      "Images des Notes, photo de profil et CV PDF. Un fichier ajouté ici devient sélectionnable depuis les champs média du site.",
   },
   upload: {
     staticDir: "./media",

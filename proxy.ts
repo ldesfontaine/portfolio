@@ -9,7 +9,7 @@ const PUBLIC_STATS_PATHS = new Set(["/stats/count", "/stats/count.js"]);
 // dashboard load.
 const STATIC_ASSET = /\.(css|js|map|svg|png|jpe?g|gif|ico|woff2?|ttf|webp)$/i;
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_STATS_PATHS.has(pathname) || STATIC_ASSET.test(pathname)) {
@@ -66,7 +66,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // `/stats`, `/stats/`, and any subpath — the optional `(/.*)?` group is the
-  // most reliable way to also catch the bare trailing-slash form in Next 15.
+  // `/stats`, `/stats/`, and any subpath — the optional `(/.*)?` group catches
+  // the bare trailing-slash form as well as every dashboard route.
   matcher: ["/stats(/.*)?"],
 };

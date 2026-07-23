@@ -24,7 +24,7 @@ services:
       # Must come from .env (cf. .env.example). Admin email is derived from
       # the vhost, admin password is auto-generated and persisted to
       # /data/goatcounter-admin-password (the UI login is rarely needed since
-      # /stats/* is gated by Payload via the Next.js middleware).
+      # /stats/* is gated by Payload via the Next.js proxy).
       GOATCOUNTER_VHOST: ${GOATCOUNTER_VHOST}
     volumes:
       - portfolio-data:/data

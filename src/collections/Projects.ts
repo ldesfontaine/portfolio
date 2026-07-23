@@ -1,43 +1,57 @@
-import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
+import type { CollectionBeforeValidateHook, CollectionConfig } from "payload";
 
-import { SectionHeading } from "../blocks/SectionHeading";
-import { Paragraph } from "../blocks/Paragraph";
+import { ArchitectureDiagram } from "../blocks/ArchitectureDiagram";
 import { CodeBlock } from "../blocks/CodeBlock";
 import { Highlight } from "../blocks/Highlight";
-import { ArchitectureDiagram } from "../blocks/ArchitectureDiagram";
 import { ImageBlock } from "../blocks/ImageBlock";
+import { Paragraph } from "../blocks/Paragraph";
 import { ProjectHeader } from "../blocks/ProjectHeader";
 import { ProjectMeta } from "../blocks/ProjectMeta";
-import { ProjectTags } from "../blocks/ProjectTags";
 import { ProjectNav } from "../blocks/ProjectNav";
-import { revalidateProjects } from "../hooks/revalidate";
+import { ProjectTags } from "../blocks/ProjectTags";
+import { SectionHeading } from "../blocks/SectionHeading";
+import { TableBlock } from "../blocks/TableBlock";
+import { visibleThemesWhere } from "../editorial/themePolicy";
 import { makeUniqueOrder } from "../hooks/uniqueOrder";
+import { validateEditorialBlocks } from "../hooks/validateEditorialBlocks";
+import { revalidateThemes } from "../hooks/revalidate";
+import { slugify } from "../utils/slugify";
 
-const slugify = (input: string): string =>
-  input
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+const prepareTheme: CollectionBeforeValidateHook = ({ data }) => {
+  if (!data) return data;
 
-const autoSlug: CollectionBeforeChangeHook = ({ data }) => {
-  if (data && typeof data.title === "string" && !data.slug) {
+  if (typeof data.title === "string" && !data.slug) {
     data.slug = slugify(data.title);
   }
+
+  // These values only keep the pre-redesign columns valid. They are hidden,
+  // never rendered publicly and remain available for a rollback of the old UI.
+  data.category ??= "theme";
+  data.kind ??= "case-study";
+  data.cardVisual ??= "auto";
+  data.description ??= "Thème de classement des Notes";
+  data.stack ??= [];
+  data.period ??= "Non applicable";
+  data.type ??= "Thème";
+
   return data;
 };
+
+const hidden = { hidden: true } as const;
 
 export const Projects: CollectionConfig = {
   slug: "projects",
   labels: {
-    singular: "Projet",
-    plural: "Projets",
+    singular: "Thème",
+    plural: "Thèmes",
   },
   admin: {
     useAsTitle: "title",
-    defaultColumns: ["title", "category", "order", "_status"],
-    group: "Contenu",
+    defaultColumns: ["title", "order", "_status"],
+    group: "Éditorial",
+    baseFilter: () => visibleThemesWhere(),
+    description:
+      "Un thème sert uniquement à filtrer et regrouper des Notes. Il ne possède pas de page publique ni de contenu propre.",
   },
   defaultSort: "order",
   versions: {
@@ -47,13 +61,13 @@ export const Projects: CollectionConfig = {
     maxPerDoc: 10,
   },
   hooks: {
-    beforeChange: [autoSlug],
-    afterChange: [makeUniqueOrder("projects"), revalidateProjects],
+    beforeValidate: [prepareTheme, validateEditorialBlocks],
+    afterChange: [makeUniqueOrder("projects"), revalidateThemes],
   },
   fields: [
     {
       name: "title",
-      label: "Titre",
+      label: "Nom du thème",
       type: "text",
       required: true,
     },
@@ -65,100 +79,12 @@ export const Projects: CollectionConfig = {
       index: true,
       admin: {
         position: "sidebar",
-        description:
-          "Auto-généré depuis le titre si laissé vide (kebab-case sans accents).",
-      },
-    },
-    {
-      name: "category",
-      label: "Catégorie",
-      type: "text",
-      required: true,
-      admin: {
-        description: "Ex : « monitoring · devsecops ».",
-      },
-    },
-    {
-      name: "description",
-      label: "Description",
-      type: "textarea",
-      required: true,
-      maxLength: 240,
-      admin: {
-        description: "Résumé court (240 caractères max) affiché sur les cartes.",
-      },
-    },
-    {
-      name: "stack",
-      label: "Stack",
-      type: "array",
-      required: true,
-      labels: {
-        singular: "Techno",
-        plural: "Technos",
-      },
-      admin: {
-        description: "Badges techno affichés sur la fiche projet.",
-      },
-      fields: [
-        {
-          name: "value",
-          label: "Nom",
-          type: "text",
-          required: true,
-        },
-      ],
-    },
-    {
-      name: "github",
-      label: "Lien GitHub",
-      type: "text",
-      admin: {
-        description: "URL complète (https://...) — optionnel.",
-      },
-      validate: (value: unknown) => {
-        if (value === undefined || value === null || value === "") return true;
-        if (typeof value !== "string") return "URL invalide";
-        try {
-          const url = new URL(value);
-          if (url.protocol !== "http:" && url.protocol !== "https:") {
-            return "L'URL doit utiliser http ou https";
-          }
-          return true;
-        } catch {
-          return "URL invalide";
-        }
-      },
-    },
-    {
-      name: "period",
-      label: "Période",
-      type: "text",
-      required: true,
-      admin: {
-        description: "Ex : « 2024 - en cours ».",
-      },
-    },
-    {
-      name: "type",
-      label: "Type",
-      type: "text",
-      required: true,
-      admin: {
-        description: "Ex : « Projet personnel », « Mission », etc.",
-      },
-    },
-    {
-      name: "badge",
-      label: "Badge",
-      type: "text",
-      admin: {
-        description: "Étiquette optionnelle (« en cours », « archivé », ...).",
+        description: "Auto-généré depuis le nom si laissé vide.",
       },
     },
     {
       name: "order",
-      label: "Ordre",
+      label: "Ordre des filtres",
       type: "number",
       required: true,
       defaultValue: 0,
@@ -167,9 +93,93 @@ export const Projects: CollectionConfig = {
         description: "Plus petit = affiché en premier.",
       },
     },
+
+    // Champs du modèle Projet conservés pour compatibilité et rollback.
+    { name: "shortTitle", type: "text", maxLength: 32, admin: hidden },
+    { name: "category", type: "text", required: true, admin: hidden },
+    {
+      name: "kind",
+      type: "select",
+      required: true,
+      defaultValue: "case-study",
+      admin: hidden,
+      options: [
+        { label: "Système vivant", value: "living-system" },
+        { label: "Produit", value: "product" },
+        { label: "Étude de cas", value: "case-study" },
+        { label: "Expérimentation", value: "experiment" },
+      ],
+    },
+    {
+      name: "cardVisual",
+      type: "select",
+      required: true,
+      defaultValue: "auto",
+      admin: hidden,
+      options: [
+        { label: "Automatique", value: "auto" },
+        { label: "Homelab / architecture", value: "homelab" },
+        { label: "Simulation", value: "crisis" },
+        { label: "Phantom / terminal", value: "phantom" },
+        { label: "Système générique", value: "system" },
+      ],
+    },
+    { name: "cover", type: "upload", relationTo: "media", admin: hidden },
+    {
+      name: "description",
+      type: "textarea",
+      required: true,
+      maxLength: 240,
+      admin: hidden,
+    },
+    {
+      name: "stack",
+      type: "array",
+      required: true,
+      admin: hidden,
+      fields: [{ name: "value", type: "text", required: true }],
+    },
+    { name: "github", type: "text", admin: hidden },
+    { name: "period", type: "text", required: true, admin: hidden },
+    { name: "type", type: "text", required: true, admin: hidden },
+    { name: "badge", type: "text", admin: hidden },
+    {
+      name: "featured",
+      type: "checkbox",
+      defaultValue: false,
+      admin: hidden,
+    },
+    {
+      name: "listedInNotes",
+      type: "checkbox",
+      defaultValue: false,
+      admin: hidden,
+    },
+    { name: "publishedAt", type: "date", admin: hidden },
+    {
+      name: "readingTime",
+      type: "number",
+      min: 1,
+      max: 120,
+      defaultValue: 5,
+      admin: hidden,
+    },
+    {
+      name: "parentProject",
+      type: "relationship",
+      relationTo: "projects",
+      admin: hidden,
+    },
+    {
+      name: "relatedProjects",
+      type: "relationship",
+      relationTo: "projects",
+      hasMany: true,
+      admin: hidden,
+    },
     {
       name: "content",
-      label: "Contenu du write-up",
+      label: "Ancien contenu du projet",
       type: "blocks",
       blocks: [
         ProjectHeader,
@@ -178,14 +188,16 @@ export const Projects: CollectionConfig = {
         Paragraph,
         CodeBlock,
         Highlight,
+        TableBlock,
         ArchitectureDiagram,
         ImageBlock,
         ProjectTags,
         ProjectNav,
       ],
       admin: {
+        hidden: true,
         description:
-          "Assemble la page bloc par bloc. Si tu n'ajoutes aucun bloc structurel (en-tête, méta, tags, nav), un layout par défaut est appliqué automatiquement.",
+          "Archive conservée pour rollback après migration du contenu vers Notes.",
       },
     },
   ],

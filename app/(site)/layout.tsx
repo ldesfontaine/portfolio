@@ -9,7 +9,7 @@ import "./globals.css";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
   display: "swap",
 });
@@ -55,21 +55,12 @@ export default async function RootLayout({
   // entirely when the admin is logged in — no tracker loaded, no risk of
   // counting our own navigations.
   const adminLoggedIn = cookieStore.has("payload-token");
+  const shouldTrack = process.env.NODE_ENV === "production" && !adminLoggedIn;
   return (
     <html lang="fr" className={`${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t)})()`,
-          }}
-        />
-        {!adminLoggedIn ? (
+        {shouldTrack ? (
           <>
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `window.goatcounter={allow_local:true};`,
-              }}
-            />
             <script
               data-goatcounter="/stats/count"
               async
@@ -80,9 +71,9 @@ export default async function RootLayout({
       </head>
       <body className="flex min-h-screen flex-col">
         <Nav />
-        <main className="flex-1 py-12">{children}</main>
+        <main className="flex-1">{children}</main>
         <Footer siteMeta={siteMeta} />
-        {!adminLoggedIn ? <TrackPageView /> : null}
+        {shouldTrack ? <TrackPageView /> : null}
       </body>
     </html>
   );

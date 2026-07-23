@@ -9,32 +9,41 @@ const safeRevalidate = (
     revalidatePath(path, type);
   } catch {
     // revalidatePath requires a Next.js request context; ignore failures when
-    // hooks fire from standalone scripts (seed, migrate, etc.).
+    // Hooks can fire from standalone bootstrap or maintenance scripts.
   }
 };
 
-export const revalidateProjects: CollectionAfterChangeHook = ({
+export const revalidateThemes: CollectionAfterChangeHook = ({
+  doc,
+  operation,
+}) => {
+  if (operation !== "create" && operation !== "update") return doc;
+  safeRevalidate("/notes");
+  safeRevalidate("/");
+  return doc;
+};
+
+export const revalidatePosts: CollectionAfterChangeHook = ({
   doc,
   operation,
 }) => {
   if (operation !== "create" && operation !== "update") return doc;
   if (typeof doc.slug === "string" && doc.slug.length > 0) {
-    safeRevalidate(`/projets/${doc.slug}`);
+    safeRevalidate(`/notes/${doc.slug}`);
   }
-  safeRevalidate("/projets");
+  safeRevalidate("/notes");
   safeRevalidate("/");
   return doc;
 };
 
 export const revalidateTimeline: CollectionAfterChangeHook = ({ doc }) => {
-  safeRevalidate("/parcours");
+  safeRevalidate("/profil");
   safeRevalidate("/");
   return doc;
 };
 
 export const revalidateCertifications: CollectionAfterChangeHook = ({ doc }) => {
-  safeRevalidate("/parcours");
-  safeRevalidate("/a-propos");
+  safeRevalidate("/profil");
   return doc;
 };
 
@@ -44,6 +53,6 @@ export const revalidateSiteMeta: GlobalAfterChangeHook = ({ doc }) => {
 };
 
 export const revalidateAbout: GlobalAfterChangeHook = ({ doc }) => {
-  safeRevalidate("/a-propos");
+  safeRevalidate("/profil");
   return doc;
 };

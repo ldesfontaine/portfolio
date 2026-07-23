@@ -2,65 +2,40 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import ThemeToggle from "@/components/ThemeToggle";
 
 const links = [
-  { href: "/projets", label: "projets" },
-  { href: "/parcours", label: "parcours" },
-  { href: "/a-propos", label: "a propos" },
+  { href: "/notes", label: "Notes", matches: ["/travaux", "/projets", "/notes"] },
+  { href: "/profil", label: "Profil", matches: ["/profil"] },
 ];
 
 export default function Nav() {
   const pathname = usePathname();
 
   return (
-    <nav style={{ borderBottom: "0.5px solid var(--n100)" }}>
-      <div className="mx-auto max-w-[820px] px-5 flex items-center justify-between py-5">
+    <nav className="site-nav">
+      <div className="site-nav-inner">
       <Link
         href="/"
-        className="font-mono text-[13px] sm:text-[15px] font-medium"
-        style={{ color: "var(--n900)" }}
+        className="site-wordmark"
       >
-        lucas<span style={{ color: "var(--accent)" }}>.</span>desf
+        lucas<span>.</span>desf
       </Link>
-      <div className="flex items-center gap-2.5 sm:gap-5">
-        {links.map((link, i) => {
-          const active =
-            pathname === link.href || pathname.startsWith(link.href + "/");
+      <div className="site-nav-links">
+        {links.map((link) => {
+          const active = link.matches.some(
+            (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+          );
           return (
-            <span key={link.href} className="flex items-center gap-2.5 sm:gap-5">
-              {i > 0 && (
-                <span
-                  className="hidden sm:inline font-mono text-[12.5px]"
-                  style={{ color: "var(--n300)" }}
-                >
-                  |
-                </span>
-              )}
-              <Link
-                href={link.href}
-                className="font-mono text-[11px] sm:text-[12.5px] transition-colors duration-200"
-                style={{ color: active ? "var(--accent)" : "var(--n400)" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.color = "var(--accent)")
-                }
-                onMouseLeave={(e) =>
-                  !active &&
-                  (e.currentTarget.style.color = "var(--n400)")
-                }
-              >
-                {link.label}
-              </Link>
-            </span>
+            <Link
+              key={link.href}
+              href={link.href}
+              className={active ? "is-active" : undefined}
+              aria-current={active ? "page" : undefined}
+            >
+              {link.label}
+            </Link>
           );
         })}
-        <span
-          className="hidden sm:inline font-mono text-[12.5px]"
-          style={{ color: "var(--n300)" }}
-        >
-          |
-        </span>
-        <ThemeToggle />
       </div>
       </div>
     </nav>

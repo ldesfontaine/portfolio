@@ -4,13 +4,16 @@ Portfolio personnel DevSecOps & Sécurité des Infrastructures.
 
 ## Stack
 
-- **Next.js 15** App Router (React 19, TypeScript strict)
-- **Payload CMS 3** intégré dans la même app (panel admin sur `/admin`)
+- **Next.js 16.2.11** App Router (React 19, TypeScript strict)
+- **Payload CMS 3.86.0** intégré dans la même app (panel admin sur `/admin`)
 - **SQLite** (via `@payloadcms/db-sqlite`) — single file, volume-backed
 - **Tailwind CSS 4** (`@theme` dans `app/(site)/globals.css`, theming via CSS variables)
 - **Sharp + libvips** pour le traitement d'images uploadées
 
-Le panel d'admin Payload est en français. Tout le contenu (projets, parcours, certifs, métas) est édité depuis `/admin` ; le frontend lit la base via la Local API et révalide on-demand via les hooks `afterChange`.
+Le panel d'admin Payload est en français. Thèmes, Notes, profil, parcours,
+certifications, médias et textes de l'accueil sont édités depuis `/admin` ; le
+frontend lit la base via la Local API et révalide les pages concernées via les
+hooks `afterChange`.
 
 ## Structure
 
@@ -21,27 +24,33 @@ app/
 │   ├── api/
 │   └── layout.tsx
 └── (site)/         # Site public (root layout = Nav + Footer + fonts)
-    ├── a-propos/
-    ├── parcours/
+    ├── notes/
+    ├── profil/
     ├── projets/
+    ├── travaux/     # redirection de compatibilité vers /notes
     └── layout.tsx
 
 src/
-├── blocks/         # Section heading, paragraph, code-block, highlight, etc.
-├── collections/    # Projects, TimelineItems, Certifications, Media, Users
+├── blocks/         # Texte, code, encart, tableau, schéma, image…
+├── collections/    # Projects, Posts, TimelineItems, Certifications, Media, Users
 ├── globals/        # SiteMeta, About
 └── hooks/          # afterChange → revalidatePath
 
-components/         # UI (Nav, Footer, ProjectCard, BlockRenderer…) — visuel inchangé
+components/         # UI publique et composants du dashboard Payload
 lib/
 ├── content.ts      # getSiteMeta / getAbout / getTimeline / getCertifications
-├── projects.ts     # getProjects / getProjectBySlug / getProjectSlugs
+├── posts.ts        # Notes publiées et relations facultatives vers les Thèmes
+├── projects.ts     # lecture des Thèmes (nom technique conservé pour la DB)
+├── payload.ts      # instance Local API partagée
 └── types.ts
 
 scripts/
-├── create-admin.ts # auto-bootstrap du premier user au démarrage
-├── seed.ts         # migration one-shot des anciens MDX (Étape 3)
-└── backup.sh       # snapshot SQLite + tarball médias
+├── bootstrap-schema.ts # vérifie, sauvegarde et applique le schéma SQLite
+├── migrate-project-writeups-to-notes.ts # reprise idempotente des anciens articles
+├── prepare-editorial-v2.ts # Notes autonomes et brouillons validés Your Cloud
+├── redesign-content-v1.ts # synchronisation éditoriale bornée et idempotente
+├── schema-bootstrap-policy.ts # liste fermée des suppressions autorisées
+└── generate-og.mjs     # génère l'image Open Graph statique
 
 docker/
 └── entrypoint.sh
@@ -76,14 +85,16 @@ npm run dev                  # Next + Payload sur :3000
 npm run build                # build prod
 npm run start                # serveur prod local
 npm run typecheck            # tsc --noEmit
-npm run lint                 # next lint
+npm run lint                 # ESLint (configuration plate Next.js 16)
+npm test                     # tests hostiles des blocs éditoriaux
+npm run generate:types       # régénère payload-types.ts
 npm run generate:types:docker # régénère payload-types.ts dans un conteneur Node 22
-npm run seed:docker          # migre legacy/content/* vers la base — idempotent
 ```
 
 ## Setup prod (Docker + Traefik)
 
 Pré-requis :
+
 - Un hôte avec Docker + un Traefik existant (réseau `traefik` external)
 - Domaine pointé sur l'hôte
 - (Optionnel mais recommandé) Une IP fixe ou un VPN/Tailscale pour accéder à `/admin`
@@ -98,15 +109,12 @@ DATABASE_URI=file:/data/payload.db
 SITE_URL=https://lucasdesfontaine.dev
 SITE_HOST=lucasdesfontaine.dev
 
-# Premier admin créé automatiquement au premier boot si la base est vide
-ADMIN_EMAIL=lucas@example.com
-ADMIN_PASSWORD=un-mot-de-passe-fort
-
 # IP autorisées sur /admin et /api (sinon 403 Traefik)
 ADMIN_ALLOWED_IPS=1.2.3.4/32,5.6.7.8/32
 ```
 
 Sans IP fixe, alternatives :
+
 - **Tailscale** : utiliser l'IP de tunnel (`100.x.y.z/32`)
 - **Cloudflare Access** : mettre une Access App devant `/admin` (auth Google/GitHub)
 - **VPN** : Wireguard sur l'hôte + IP du tunnel dans l'allowlist
@@ -119,11 +127,66 @@ docker compose logs -f portfolio
 ```
 
 Le conteneur :
-1. Pousse le schéma SQLite si absent (entrypoint avec `NODE_ENV=development` éphémère)
-2. Crée le user admin depuis `ADMIN_EMAIL`/`ADMIN_PASSWORD` si la collection `users` est vide
-3. Démarre Next en `NODE_ENV=production`
+
+1. Inspecte le plan de schéma Payload, sauvegarde la base si une suppression
+   approuvée est nécessaire, puis applique et revérifie le schéma ;
+2. copie une seule fois les anciens contenus vers des Notes, conserve leur
+   source de rollback, sépare les Notes autonomes et prépare en brouillon le
+   thème Your Cloud ainsi que sa Note d'introduction validée ;
+3. provisionne GoatCounter si nécessaire ;
+4. démarre Next en `NODE_ENV=production`.
 
 Health check `wget /` toutes les 30 s. Volumes Docker : `portfolio-data` (SQLite + backups) et `portfolio-media` (uploads Payload).
+
+Sur une base vide, le premier compte Payload se crée depuis `/admin`. Aucun mot
+de passe administrateur n'est lu depuis les variables d'environnement.
+
+### Garde de schéma au démarrage
+
+Le bootstrap est non interactif afin qu'un redémarrage Docker ne puisse pas
+laisser Next démarrer sur un schéma ancien. Les ajouts sont appliqués
+automatiquement. Si une base se trouve dans un état additif intermédiaire, une
+sauvegarde est créée puis seuls les champs connus du redesign sont complétés
+et les tables de staging Drizzle connues sont retirées avant que Payload
+recalcule son plan. Tout artefact de staging inconnu arrête le conteneur. La
+seule perte de données autorisée est la suppression des sept colonnes retirées
+par ce redesign (`site_meta.title`, `description`, `location`, `availability`,
+`about.quick_info_rhythm`, `posts.featured` et
+`_posts_v.version_featured`). Une sauvegarde SQLite cohérente est créée dans
+`/data/backups/` avant leur suppression. Le plan SQL est contrôlé même lorsque
+Drizzle omet une alerte sur une table vide. Ses créations d'index strictement
+dupliquées sont réduites à la première occurrence ; une définition divergente
+ou toute autre suppression arrête le conteneur.
+
+La synchronisation éditoriale porte le marqueur interne `contentRevision=7`.
+Elle conserve Homelab comme seul Thème publié, transforme Simulation,
+Phantom et Bientôt en Notes autonomes et initialise l'introduction/spécialités
+du Profil. Elle crée aussi au statut brouillon le Thème Your Cloud et sa
+première Note de présentation validée, sans préparer d'autres sujets. Un
+contenu déjà créé n'est jamais écrasé au redémarrage. Les démarrages suivants
+relisent le marqueur et ne rejouent pas ces écritures.
+
+Le passage de la révision 4 à la révision 5 supprime uniquement les six anciens
+brouillons Your Cloud identifiés par leur slug exact lorsqu'ils sont encore au
+statut brouillon. Une Note publiée ou renommée est conservée, et la sauvegarde
+SQLite préalable permet de reprendre la base en cas d'échec.
+
+La révision 6 annonce dès l'ouverture que Your Cloud reste en construction et
+renomme la Note autonome « Bientôt : monitoring léger » sans la rattacher au
+thème Homelab. La révision 7 propage exceptionnellement ce texte validé dans la
+Note Your Cloud déjà publiée tout en conservant son statut. Les redémarrages
+suivants ne réécrivent plus son contenu.
+
+Ce choix protège le contenu et la disponibilité contre un schéma partiellement
+appliqué. Une confirmation forcée de toutes les alertes et une migration SQL
+aveugle ont été écartées : elles auraient accordé une portée de suppression
+inutile. La liste fermée, la sauvegarde préalable et l'arrêt par défaut suivent
+les principes OWASP de valeur sûre, moindre privilège et défense en profondeur,
+ainsi que les mesures NIS2 proportionnées de gestion des risques, continuité et
+développement sûr. Les preuves couvrent le chemin normal, une suppression non
+autorisée et un second passage idempotent. Le risque résiduel est qu'une future
+évolution avec renommage ambigu nécessite une migration dédiée ; le conteneur
+doit alors rester arrêté jusqu'à sa revue.
 
 ### Sécurité
 
@@ -141,14 +204,14 @@ Stats privacy-friendly (sans cookies tiers, sans envoi de données vers un servi
 
 ### Endpoints (servis sous `/stats/...` sur le domaine du portfolio)
 
-| Path                  | Auth                              | Rôle                                            |
-|-----------------------|-----------------------------------|-------------------------------------------------|
-| `/stats/count`        | publique                          | POST des hits (script de tracking)              |
-| `/stats/count.js`     | publique                          | Script JS de tracking                           |
-| `/stats/`             | login GoatCounter                 | Dashboard                                       |
-| `/stats/settings/...` | login GoatCounter                 | Réglages du site (publicité, badges, etc.)      |
+| Path                  | Auth              | Rôle                                       |
+| --------------------- | ----------------- | ------------------------------------------ |
+| `/stats/count`        | publique          | POST des hits (script de tracking)         |
+| `/stats/count.js`     | publique          | Script JS de tracking                      |
+| `/stats/`             | login GoatCounter | Dashboard                                  |
+| `/stats/settings/...` | login GoatCounter | Réglages du site (publicité, badges, etc.) |
 
-L'auth est **SSO via Payload** : un middleware Next.js gate `/stats/*` derrière la session admin. Le site GoatCounter est marqué `public` au bootstrap pour désactiver son login interne — c'est le middleware qui est le seul gardien. Si tu hits `/stats/` sans cookie Payload valide, tu te fais rediriger vers `/admin/login?redirect=/stats`. Une fois loggé, tu retombes sur le dashboard directement.
+L'auth est **SSO via Payload** : le proxy Next.js protège `/stats/*` derrière la session admin. Le site GoatCounter est marqué `public` au bootstrap pour désactiver son login interne — c'est le proxy qui est le seul gardien. Si tu hits `/stats/` sans cookie Payload valide, tu te fais rediriger vers `/admin/login?redirect=/stats`. Une fois loggé, tu retombes sur le dashboard directement.
 
 Le panel Payload (`/admin`) affiche une carte **Analytics** qui montre un résumé des 7 derniers jours (total, top 5 pages) — alimentée par l'API GoatCounter via un token créé au bootstrap. La carte affiche aussi un bouton **"Ouvrir le dashboard ↗"** qui ouvre `/stats/` dans un nouvel onglet pour la vue complète. Pas d'iframe (la CSP de GoatCounter bloque l'embed côté serveur, c'est volontaire de leur côté).
 
@@ -160,10 +223,11 @@ Le panel Payload (`/admin`) affiche une carte **Analytics** qui montre un résum
 
 ### Détails techniques
 
-- **CSRF Origin forgé** : la fetch interne `middleware → /api/users/me` passe un header `Origin: req.nextUrl.origin` pour passer le check CSRF de Payload (qui exige soit une `Origin` matchant `csrf:`, soit un `Sec-Fetch-Site=same-origin`). Sans ça, le check renvoie `user: null` et le middleware bloque même les sessions valides.
+- **CSRF Origin forgé** : la fetch interne `proxy → /api/users/me` passe un header `Origin` issu de `SITE_URL` pour passer le check CSRF de Payload (qui exige soit une `Origin` matchant `csrf:`, soit un `Sec-Fetch-Site=same-origin`). Sans ça, le check renvoie `user: null` et le proxy bloque même les sessions valides.
 - **Token API** : créé au premier boot dans `/data/goatcounter-api-token` (lisible par l'user `nextjs` uniquement, mode `0600`). Permissions : `site_read,export` + bit `stats` (64) ajouté via SQL — la CLI `db create apitoken` de la v2.7.0 n'expose pas la perm `stats` qui est requise pour les endpoints `/api/v0/stats/*`.
 - **Site public** : `UPDATE sites SET settings = json_set(settings, '$.public', 'public')` au bootstrap. Sans ça, le dashboard exigerait un second login GoatCounter, par-dessus celui de Payload.
-- **`allow_local`** : le snippet de tracking est injecté avec `allow_local: true` (le default GoatCounter saute les visites depuis `localhost`/`127.0.0.1`). En prod c'est neutre puisque tu ne visites jamais le site via localhost.
+- **Navigations Next.js** : `TrackPageView` complète le chargement initial de
+  `count.js` en enregistrant les navigations client-side.
 - **UI GoatCounter** : par défaut en anglais. Pour passer en français, va sur `/stats/settings/user` → Language → "Français" → Save. Préférence par-user persistée en DB.
 
 ### Ne pas se compter soi-même (auto-exclusion)
@@ -171,6 +235,7 @@ Le panel Payload (`/admin`) affiche une carte **Analytics** qui montre un résum
 Le snippet inline avant `count.js` lit `document.cookie` et set `no_onload: true` quand le cookie `payload-token` (session Payload) est présent — autrement dit, **dès que tu es loggé sur `/admin`, tes propres visites dans le même navigateur ne sont pas comptées**. Le workflow attendu est donc : tu te logges sur `/admin` avant d'aller checker tes pages publiques.
 
 Limites :
+
 - **Navigateur où tu n'es pas loggé** (phone perso, navigation privée, browser jetable) : tu seras compté comme un vrai visiteur. Pour ces cas-là, soit tu te logges admin d'abord, soit tu acceptes le faux positif.
 - **Pas de filtre IP par défaut.** Si tu as une IP fixe (perso, VPN, Tailscale exit-node) et que tu veux une seconde ligne de défense, tu peux ajouter `ignore_ips` côté site GoatCounter :
   ```bash
@@ -268,7 +333,9 @@ networks:
     internal: true
 ```
 
-Le volume `portfolio-data` contient **et** la DB Payload **et** la DB GoatCounter (`/data/payload.db` + `/data/goatcounter.sqlite3`). Une seule sauvegarde, un seul snapshot, un seul restore — le script `scripts/backup.sh` les couvre déjà via son `tar -czf /data/...`.
+Le volume `portfolio-data` contient la DB Payload et la DB GoatCounter
+(`/data/payload.db` + `/data/goatcounter.sqlite3`). Le dashboard Payload permet
+de télécharger un snapshot unique qui contient les deux bases et les médias.
 
 ### Si tu rajoutes Pangolin plus tard
 
@@ -293,57 +360,38 @@ Le binaire upstream est pinné par version + SHA256 dans la stage `goatcounter-d
 
 ## Backup et restore
 
-### Automatique (cron sur l'hôte)
+### Depuis le back-office
 
-Ajoute au crontab de l'hôte :
-
-```cron
-0 3 * * * docker exec portfolio /app/scripts/backup.sh >> /var/log/portfolio-backup.log 2>&1
-```
-
-Le script :
-- snapshot SQLite via `.backup` (safe pendant les writes) → `/data/backups/payload-YYYYMMDD-HHMMSS.db`
-- tarball médias → `/data/backups/media-YYYYMMDD-HHMMSS.tar.gz`
-- rétention locale 30 jours
-- copie offsite via `rclone` si `RCLONE_REMOTE` est défini
-
-### Offsite via rclone
-
-`rclone` n'est pas inclus dans l'image. Deux options :
-
-1. **Lancer rclone depuis l'hôte** sur le volume `/var/lib/docker/volumes/portfolio-data/_data/backups/`
-2. Ajouter `rclone` à l'image (à voir si besoin)
-
-### Restore
-
-```bash
-# 1. Stop le conteneur
-docker compose stop portfolio
-
-# 2. Remplacer la base
-docker run --rm -v portfolio-data:/data alpine \
-  sh -c 'cp /data/backups/payload-YYYYMMDD-HHMMSS.db /data/payload.db'
-
-# 3. (Optionnel) Restaurer les médias
-docker run --rm -v portfolio-data:/data -v portfolio-media:/media alpine \
-  sh -c 'tar xzf /data/backups/media-YYYYMMDD-HHMMSS.tar.gz -C /media'
-
-# 4. Restart
-docker compose start portfolio
-```
+La carte **Sauvegarde & restauration** du dashboard télécharge un `.tar.gz`
+contenant `payload.db`, les médias et, lorsqu'elle existe, la base GoatCounter.
+La restauration valide la taille et les signatures SQLite, conserve une copie
+pré-restauration puis redémarre le conteneur.
 
 ## Éditer du contenu
 
 Va sur `https://{SITE_HOST}/admin`. Tu y trouves :
 
-- **Contenu** → Projets, Médias, Items du parcours, Certifications, À propos
-- **Configuration** → Utilisateurs, Métadonnées du site
+- **Site** → Identité & accueil, Profil
+- **Éditorial** → Thèmes, Notes
+- **Profil** → Items du parcours, Certifications
+- **Médiathèque** → Médias
+- **Administration** → Utilisateurs
 
-Les modifications sont propagées au site public dans la seconde via les hooks `afterChange` (revalidatePath ciblé). Filet ISR `revalidate = 3600` sur chaque page si un hook foire silencieusement.
+Une **Note** est le seul contenu éditorial public. Un **Thème** comme Homelab
+sert uniquement à regrouper et filtrer des Notes ; il n'a ni page publique ni
+contenu propre. Le champ **Thèmes** d'une Note est facultatif : le laisser vide
+n'empêche ni l'enregistrement ni la publication. La page canonique est
+`/notes` et les anciennes URLs `/travaux` et `/projets/...` y redirigent.
+Le bouton de prévisualisation d'une Note enregistrée en brouillon ouvre une
+vue privée qui exige une session Payload active ; sans cette session, la route
+renvoie une page introuvable.
 
-## Migration depuis l'ancien stack MDX
+La collection Payload garde le slug technique `projects` et ses anciennes
+colonnes masquées pour ne pas imposer une migration destructive à la base. Le
+back-office et le site parlent uniquement de Thèmes.
 
-L'historique complet de la migration (5 étapes, écarts par rapport au brief, pièges connus) est dans [MIGRATION.md](MIGRATION.md). Les sources MDX originales sont archivées dans `legacy/content/`.
+Les modifications sont propagées au site public via des hooks `afterChange`
+qui invalident uniquement les pages concernées.
 
 ## Licence
 

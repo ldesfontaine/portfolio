@@ -15,7 +15,7 @@ export const Certifications: CollectionConfig = {
   admin: {
     useAsTitle: "name",
     defaultColumns: ["name", "organization", "status", "order"],
-    group: "Contenu",
+    group: "Profil",
   },
   defaultSort: "order",
   fields: [

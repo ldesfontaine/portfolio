@@ -11,6 +11,7 @@ import { Media } from "./src/collections/Media";
 import { Projects } from "./src/collections/Projects";
 import { TimelineItems } from "./src/collections/TimelineItems";
 import { Certifications } from "./src/collections/Certifications";
+import { Posts } from "./src/collections/Posts";
 import { SiteMeta } from "./src/globals/SiteMeta";
 import { About } from "./src/globals/About";
 
@@ -41,7 +42,7 @@ export default buildConfig({
     fallbackLanguage: "fr",
     supportedLanguages: { fr },
   },
-  collections: [Users, Media, Projects, TimelineItems, Certifications],
+  collections: [Users, Media, Projects, Posts, TimelineItems, Certifications],
   globals: [SiteMeta, About],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || "",
@@ -52,8 +53,9 @@ export default buildConfig({
     client: {
       url: process.env.DATABASE_URI || "file:./payload.db",
     },
-    // Single-user SQLite deployment — auto-push the schema on every boot
-    // instead of maintaining a migration history.
+    // Local development keeps Payload's automatic push. The production
+    // entrypoint uses scripts/bootstrap-schema.ts to inspect, back up and
+    // verify the same plan without an interactive prompt.
     push: true,
   }),
   sharp,

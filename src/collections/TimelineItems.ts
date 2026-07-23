@@ -15,7 +15,7 @@ export const TimelineItems: CollectionConfig = {
   admin: {
     useAsTitle: "title",
     defaultColumns: ["title", "date", "activeLabel", "order"],
-    group: "Contenu",
+    group: "Profil",
   },
   defaultSort: "order",
   fields: [

@@ -1,6 +1,3 @@
-import { getPayload } from "payload";
-
-import config from "@payload-config";
 import type {
   About as AboutGlobal,
   Certification as PayloadCertification,
@@ -9,10 +6,11 @@ import type {
   TimelineItem as PayloadTimelineItem,
 } from "@/payload-types";
 import type { Certification, SiteMeta, TimelineItem } from "./types";
+import { getPayloadClient } from "./payload";
 
-const payloadPromise = getPayload({ config });
+const payloadPromise = getPayloadClient();
 
-const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+const safe = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
   try {
     return await fn();
   } catch (err) {
@@ -23,23 +21,23 @@ const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
   }
 };
 
-const mediaUrl = (
-  field: Media | number | null | undefined,
-): string | null =>
+const mediaUrl = (field: Media | number | null | undefined): string | null =>
   field && typeof field === "object" && typeof field.url === "string"
     ? field.url
     : null;
 
 const emptySiteMeta: SiteMeta = {
   name: "",
-  title: "",
-  description: "",
   email: "",
   github: "",
   linkedin: "",
-  location: "",
-  availability: "",
   cvUrl: null,
+  hero: {
+    eyebrow: "DevSecOps · Infrastructure · Sécurité",
+    title: "Je construis, sécurise et documente des systèmes.",
+    description:
+      "Conception et exploitation de plateformes fiables : infrastructure as code, automatisation, observabilité et sécurité.",
+  },
 };
 
 export type About = Omit<AboutGlobal, "photo"> & { photoUrl: string | null };
@@ -63,14 +61,15 @@ export async function getSiteMeta(): Promise<SiteMeta> {
     })) as SiteMetaGlobal;
     return {
       name: doc.name ?? "",
-      title: doc.title ?? "",
-      description: doc.description ?? "",
       email: doc.email ?? "",
       github: doc.github ?? "",
       linkedin: doc.linkedin ?? "",
-      location: doc.location ?? "",
-      availability: doc.availability ?? "",
       cvUrl: mediaUrl(doc.cv as Media | number | null | undefined),
+      hero: {
+        eyebrow: doc.hero?.eyebrow ?? emptySiteMeta.hero.eyebrow,
+        title: doc.hero?.title ?? emptySiteMeta.hero.title,
+        description: doc.hero?.description ?? emptySiteMeta.hero.description,
+      },
     };
   }, emptySiteMeta);
 }
