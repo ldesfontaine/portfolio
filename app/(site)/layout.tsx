@@ -22,22 +22,44 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.SITE_URL || "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.SITE_URL || "https://portfolio.ldesfontaine.com",
+  ),
   title: {
     default: "Lucas Desfontaine — DevSecOps & Sécurité des Infrastructures",
     template: "%s | Lucas Desfontaine",
   },
   description:
-    "Portfolio de Lucas Desfontaine — DevSecOps, sécurité des infrastructures, IaC, monitoring.",
+    "Du dev à la sécurité des infras : DevSecOps, automatisation et infrastructure comprise de bout en bout.",
   icons: {
     icon: "/favicon.svg",
   },
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "Lucas Desfontaine — DevSecOps",
-    description: "Portfolio DevSecOps & Sécurité des Infrastructures",
-    url: "https://lucasdesfontaine.dev",
+    title: "Lucas Desfontaine — Du dev à la sécurité des infras",
+    description:
+      "DevSecOps, automatisation et infrastructure comprise de bout en bout.",
+    url: "https://portfolio.ldesfontaine.com",
+    siteName: "Portfolio de Lucas Desfontaine",
     type: "website",
-    images: ["/og-image.png"],
+    locale: "fr_FR",
+    images: [
+      {
+        url: "/og-image-v2.png",
+        width: 1200,
+        height: 627,
+        alt: "Du dev à la sécurité des infras — portfolio de Lucas Desfontaine",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Lucas Desfontaine — Du dev à la sécurité des infras",
+    description:
+      "DevSecOps, automatisation et infrastructure comprise de bout en bout.",
+    images: ["/og-image-v2.png"],
   },
 };
 
