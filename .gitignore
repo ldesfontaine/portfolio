@@ -47,6 +47,14 @@ CLAUDE.md
 payload.db
 payload.db.bak-*
 payload.db-journal
+*.sqlite
+*.sqlite3
+*.db.pre-restore-*
+*.sqlite.pre-restore-*
+*.sqlite3.pre-restore-*
+portfolio-snapshot-*.tar.gz
+/backups/
+/snapshots/
 /media/*
 !/media/.gitkeep
 

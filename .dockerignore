@@ -25,6 +25,11 @@ PORTFOLIO_SPEC.md
 # Local DB and uploads — these live in volumes in prod
 *.db
 *.db-journal
+*.sqlite
+*.sqlite3
+portfolio-snapshot-*.tar.gz
+backups
+snapshots
 /media
 
 # Compose isn't shipped into the image

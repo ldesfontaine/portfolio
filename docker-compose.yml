@@ -3,7 +3,7 @@
 # On your production server, write your own compose: pull the image from GHCR
 # (ghcr.io/ldesfontaine/portfolio:<tag>), wire your Traefik labels / auth /
 # network as you see fit, and mount the same volumes (portfolio-data, portfolio-media).
-# See README → "Analytics auto-hébergées" for the prod compose snippet.
+# See docs/DEPLOIEMENT.md for the server setup.
 services:
   portfolio:
     build:
