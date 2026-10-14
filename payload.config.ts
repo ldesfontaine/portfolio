@@ -32,6 +32,8 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
     components: {
+      // Bouton « Se connecter avec le SSO » sous le formulaire (OIDC).
+      afterLogin: ["/src/components/admin/SsoLoginButton"],
       beforeDashboard: [
         "/src/components/admin/BackupCard",
         "/src/components/admin/AnalyticsCard",

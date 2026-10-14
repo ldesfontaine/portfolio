@@ -137,6 +137,10 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: number;
+  /**
+   * Nom d'utilisateur chez le fournisseur SSO (Authelia). Vide : ce compte ne s'ouvre que par mot de passe.
+   */
+  ssoIdentity?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -717,6 +721,7 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  ssoIdentity?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -1161,7 +1166,7 @@ export interface SiteMeta {
 export interface About {
   id: number;
   /**
-   * Optionnelle et remplaçable. Un monogramme est affiché si elle est absente.
+   * Ancienne photo conservée pour rollback. Le Profil utilise désormais l’illustration identitaire versionnée du site.
    */
   photo?: (number | null) | Media;
   /**
