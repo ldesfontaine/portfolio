@@ -118,6 +118,85 @@ ou d'un VPN ajoute une défense utile à l'authentification Payload. Les endpoin
 `/stats/count` et `/stats/count.js` doivent rester publics pour enregistrer les
 visites.
 
+## Connexion par le SSO (OpenID Connect)
+
+L'écran de login de `/admin` garde l'e-mail et le mot de passe Payload. Quand
+`OIDC_ISSUER` est défini, un bouton **Se connecter avec le SSO** s'ajoute
+dessous : il passe par le fournisseur OpenID Connect (Authelia, Keycloak…),
+puis ouvre une session Payload ordinaire (même cookie, même déconnexion).
+
+Flux « authorization code » avec PKCE (S256), client confidentiel : le
+navigateur ne voit que le code, l'échange contre les jetons se fait de serveur
+à serveur avec le secret client.
+
+### Variables
+
+| Variable | Rôle |
+| --- | --- |
+| `OIDC_ISSUER` | Adresse du fournisseur (`https://sso.example.com`). Vide : pas de bouton, endpoints en 404. |
+| `OIDC_CLIENT_ID` | Identifiant du client déclaré chez le fournisseur (`portfolio`). |
+| `OIDC_CLIENT_SECRET` | Secret du client, en clair, 32 caractères minimum. |
+| `OIDC_REQUIRED_GROUP` | Facultatif : groupe exigé dans la réponse userinfo (`admins`). |
+| `OIDC_BUTTON_LABEL` | Facultatif : texte du bouton. |
+
+Une configuration partielle désactive le bouton et l'écrit dans les logs en
+erreur. L'adresse de retour se déduit de `SITE_URL` :
+`<SITE_URL>/api/users/oidc/callback`, à déclarer telle quelle chez le
+fournisseur.
+
+### Côté fournisseur (Authelia)
+
+```yaml
+identity_providers:
+  oidc:
+    clients:
+      - client_id: 'portfolio'
+        client_name: 'Portfolio'
+        client_secret: '<digest pbkdf2 du secret>'
+        public: false
+        authorization_policy: 'two_factor'
+        consent_mode: 'implicit'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://portfolio.example.com/api/users/oidc/callback'
+        scopes: ['openid', 'profile', 'email', 'groups']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        token_endpoint_auth_method: 'client_secret_basic'
+```
+
+Le serveur du portfolio doit joindre le fournisseur en HTTPS (découverte,
+`token`, `userinfo`). L'e-mail et les groupes sont lus dans `userinfo`
+(`email`, `email_verified`, `groups`).
+
+### Lien avec le compte
+
+Par l'e-mail : le SSO ouvre le compte Payload qui a le même e-mail que le
+compte du fournisseur (sans tenir compte des majuscules). Rien à remplir. Le
+SSO ne crée jamais de compte, et refuse un e-mail que le fournisseur ne
+déclare pas vérifié (`email_verified`). Chez Authelia (fichier
+d'utilisateurs), l'e-mail est écrit par l'administrateur : un utilisateur ne
+peut pas prendre celui d'un autre.
+
+### Ce qui est refusé
+
+Retour sur l'écran de login avec `?sso=<raison>`, et une ligne
+`event: "oidc_login"` dans les logs : erreur renvoyée par le fournisseur,
+transaction absente, expirée (10 minutes) ou falsifiée, `state` différent,
+jeton d'identité dont l'émetteur, le destinataire, l'expiration ou le `nonce`
+ne correspond pas, `sub` différent entre jeton et userinfo, e-mail absent ou
+non vérifié, groupe absent, aucun compte Payload avec cet e-mail. Le jeton d'identité vient directement du point `token` par
+TLS : sa signature n'est pas vérifiée (OpenID Connect Core 1.0, § 3.1.3.7,
+point 6), ses autres champs le sont.
+
+### Limites
+
+- Le verrouillage de Payload (5 mots de passe faux, 10 minutes) ne bloque pas
+  le SSO : il protège le mot de passe, le SSO a sa propre 2FA.
+- La déconnexion Payload ne ferme pas la session du fournisseur : un nouveau
+  clic sur le bouton reconnecte sans redemander le mot de passe SSO.
+
 ## Démarrer et mettre à jour
 
 ```bash
