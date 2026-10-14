@@ -167,15 +167,17 @@ identity_providers:
 ```
 
 Le serveur du portfolio doit joindre le fournisseur en HTTPS (découverte,
-`token`, `userinfo`). Le nom d'utilisateur et les groupes sont lus dans
-`userinfo` (`preferred_username`, `groups`).
+`token`, `userinfo`). L'e-mail et les groupes sont lus dans `userinfo`
+(`email`, `email_verified`, `groups`).
 
-### Lier un compte
+### Lien avec le compte
 
-Le SSO ne crée jamais de compte. Se connecter une fois par mot de passe, puis
-dans **Utilisateurs**, renseigner **Identité SSO** avec le nom d'utilisateur
-du fournisseur (stocké en minuscules, unique). Vide : le compte ne s'ouvre que
-par mot de passe.
+Par l'e-mail : le SSO ouvre le compte Payload qui a le même e-mail que le
+compte du fournisseur (sans tenir compte des majuscules). Rien à remplir. Le
+SSO ne crée jamais de compte, et refuse un e-mail que le fournisseur ne
+déclare pas vérifié (`email_verified`). Chez Authelia (fichier
+d'utilisateurs), l'e-mail est écrit par l'administrateur : un utilisateur ne
+peut pas prendre celui d'un autre.
 
 ### Ce qui est refusé
 
@@ -183,8 +185,8 @@ Retour sur l'écran de login avec `?sso=<raison>`, et une ligne
 `event: "oidc_login"` dans les logs : erreur renvoyée par le fournisseur,
 transaction absente, expirée (10 minutes) ou falsifiée, `state` différent,
 jeton d'identité dont l'émetteur, le destinataire, l'expiration ou le `nonce`
-ne correspond pas, `sub` différent entre jeton et userinfo, groupe absent,
-aucun compte lié. Le jeton d'identité vient directement du point `token` par
+ne correspond pas, `sub` différent entre jeton et userinfo, e-mail absent ou
+non vérifié, groupe absent, aucun compte Payload avec cet e-mail. Le jeton d'identité vient directement du point `token` par
 TLS : sa signature n'est pas vérifiée (OpenID Connect Core 1.0, § 3.1.3.7,
 point 6), ses autres champs le sont.
 

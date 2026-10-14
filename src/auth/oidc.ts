@@ -99,11 +99,11 @@ export function readOidcSettings(env: Env): OidcSettingsResult {
   };
 }
 
-/** Le nom lié dans le champ « Identité SSO » : sans espaces, en minuscules. */
-export function normalizeSsoIdentity(value: unknown): string | undefined {
+/** Comme Payload stocke les e-mails : sans espaces, en minuscules. */
+export function normalizeEmail(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const result = value.trim().toLowerCase();
-  return result ? result : undefined;
+  return result.includes("@") ? result : undefined;
 }
 
 // ── Transaction : état, nonce et vérificateur PKCE ───────────────────────────
@@ -261,7 +261,7 @@ export type OidcRefusal =
   | "missing_code"
   | "invalid_id_token"
   | "subject_mismatch"
-  | "missing_username"
+  | "missing_email"
   | "missing_group"
   | "unknown_identity";
 
@@ -307,32 +307,34 @@ export function checkIdToken(
 }
 
 /**
- * Le nom d'utilisateur et les groupes viennent de userinfo : Authelia 4.39 ne
- * les met plus dans le jeton d'identité par défaut.
+ * L'e-mail et les groupes viennent de userinfo : Authelia 4.39 ne les met plus
+ * dans le jeton d'identité par défaut. L'e-mail fait le lien avec le compte
+ * Payload : il doit être vérifié par le fournisseur (chez Authelia, c'est
+ * l'administrateur qui l'écrit, l'utilisateur ne peut pas le changer).
  */
 export function identityFromUserinfo(
   userinfo: unknown,
   subject: string,
   requiredGroup: string | undefined,
 ):
-  | { ok: true; username: string }
-  | { ok: false; reason: OidcRefusal; username?: string } {
+  | { ok: true; email: string }
+  | { ok: false; reason: OidcRefusal; email?: string } {
   if (typeof userinfo !== "object" || userinfo === null) {
-    return { ok: false, reason: "missing_username" };
+    return { ok: false, reason: "missing_email" };
   }
   const info = userinfo as Record<string, unknown>;
   if (info.sub !== subject) return { ok: false, reason: "subject_mismatch" };
 
-  const username = normalizeSsoIdentity(info.preferred_username);
-  if (!username) return { ok: false, reason: "missing_username" };
+  const email = normalizeEmail(info.email);
+  if (!email || info.email_verified !== true) return { ok: false, reason: "missing_email" };
 
   if (requiredGroup) {
     const groups = Array.isArray(info.groups) ? info.groups : [];
     if (!groups.includes(requiredGroup)) {
-      return { ok: false, reason: "missing_group", username };
+      return { ok: false, reason: "missing_group", email };
     }
   }
-  return { ok: true, username };
+  return { ok: true, email };
 }
 
 /** Le chemin interne où revenir ; tout le reste retombe sur /admin. */

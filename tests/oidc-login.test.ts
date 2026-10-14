@@ -162,18 +162,24 @@ test("émetteur, destinataire, expiration ou nonce faux : refus", () => {
   assert.equal(checkIdToken("pas.un-jwt", expected).ok, false);
 });
 
-test("userinfo : nom normalisé et groupe exigé", () => {
-  const info = { sub: "uuid-lucas", preferred_username: " Lucas ", groups: ["admins"] };
+test("userinfo : e-mail vérifié, normalisé, et groupe exigé", () => {
+  const info = {
+    sub: "uuid-lucas",
+    email: " Lucas@Example.com ",
+    email_verified: true,
+    groups: ["admins"],
+  };
   assert.deepEqual(identityFromUserinfo(info, "uuid-lucas", "admins"), {
     ok: true,
-    username: "lucas",
+    email: "lucas@example.com",
   });
   assert.deepEqual(identityFromUserinfo({ ...info, groups: ["famille"] }, "uuid-lucas", "admins"), {
     ok: false,
     reason: "missing_group",
-    username: "lucas",
+    email: "lucas@example.com",
   });
   assert.equal(identityFromUserinfo(info, "autre-sujet", "admins").ok, false);
-  assert.equal(identityFromUserinfo({ sub: "uuid-lucas" }, "uuid-lucas", undefined).ok, false);
+  assert.equal(identityFromUserinfo({ ...info, email_verified: false }, "uuid-lucas", undefined).ok, false);
+  assert.equal(identityFromUserinfo({ ...info, email: "pas-un-email" }, "uuid-lucas", undefined).ok, false);
   assert.equal(identityFromUserinfo({ ...info, groups: [] }, "uuid-lucas", undefined).ok, true);
 });

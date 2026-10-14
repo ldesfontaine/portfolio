@@ -28,8 +28,8 @@ import {
  *   GET /api/users/oidc/callback  → revient avec un code, ouvre une session
  *                                   Payload ordinaire (même cookie, même
  *                                   déconnexion que le mot de passe).
- * Aucun compte n'est créé : seul un compte dont le champ « Identité SSO »
- * porte le nom Authelia peut être ouvert.
+ * Aucun compte n'est créé : seul le compte Payload qui a le même e-mail que
+ * le compte SSO peut être ouvert.
  */
 
 const USERS = "users";
@@ -284,7 +284,7 @@ const callback: Endpoint = {
 
     const identity = identityFromUserinfo(userinfo, checked.subject, settings.requiredGroup);
     if (!identity.ok) {
-      return refuse(req, identity.reason, { identity: identity.username });
+      return refuse(req, identity.reason, { email: identity.email });
     }
 
     const user = await req.payload.db.findOne<
@@ -292,13 +292,13 @@ const callback: Endpoint = {
     >({
       collection: USERS,
       req,
-      where: { ssoIdentity: { equals: identity.username } },
+      where: { email: { equals: identity.email } },
     });
-    if (!user) return refuse(req, "unknown_identity", { identity: identity.username });
+    if (!user) return refuse(req, "unknown_identity", { email: identity.email });
 
     const sessionCookie = await openPayloadSession(req, user);
     req.payload.logger.info(
-      { event: "oidc_login", identity: identity.username, userId: user.id },
+      { event: "oidc_login", email: identity.email, userId: user.id },
       "SSO : session ouverte",
     );
     return redirect(transaction.returnTo, [sessionCookie, transactionCookie("", 0)]);

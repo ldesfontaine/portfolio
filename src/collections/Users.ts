@@ -1,6 +1,5 @@
 import type { CollectionConfig } from "payload";
 
-import { normalizeSsoIdentity } from "../auth/oidc";
 import { oidcEndpoints } from "../auth/oidcEndpoints";
 
 export const Users: CollectionConfig = {
@@ -20,23 +19,8 @@ export const Users: CollectionConfig = {
   },
   // Bouton « Se connecter avec le SSO » (inactif sans OIDC_ISSUER).
   endpoints: oidcEndpoints,
-  fields: [
-    {
-      name: "ssoIdentity",
-      type: "text",
-      label: "Identité SSO",
-      unique: true,
-      admin: {
-        position: "sidebar",
-        description:
-          "Nom d'utilisateur chez le fournisseur SSO (Authelia). " +
-          "Vide : ce compte ne s'ouvre que par mot de passe.",
-      },
-      hooks: {
-        beforeChange: [({ value }) => normalizeSsoIdentity(value)],
-      },
-    },
-  ],
+  // Le SSO ouvre le compte qui a le même e-mail : aucun champ à remplir.
+  fields: [],
 };
 
 export default Users;

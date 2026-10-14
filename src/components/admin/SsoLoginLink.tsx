@@ -8,7 +8,8 @@ const LOGIN_URL = "/api/users/oidc/login";
 const MESSAGES: Record<string, string> = {
   missing_group: "Ce compte SSO n'a pas accès à l'administration.",
   unknown_identity:
-    "Aucun compte du portfolio n'est lié à ce compte SSO (champ « Identité SSO »).",
+    "Aucun compte du portfolio n'a l'e-mail de ce compte SSO.",
+  missing_email: "Le compte SSO n'a pas d'e-mail vérifié.",
   provider_unreachable: "Le SSO ne répond pas. Réessayer, ou utiliser le mot de passe.",
   invalid_transaction: "La connexion a expiré. Réessayer.",
 };
